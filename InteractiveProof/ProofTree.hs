@@ -23,27 +23,50 @@ class Rule a b | b -> a where
     applicableRule :: (Statement a, Rule a b)=> b -> a -> Bool
 
 instance Formattable a (TextFormat String) => Formattable (ProofTree a) (TextFormat String) where
-    toFormat (ProofTree t) = TextFormat $ finchStyle t 1
-    parseFormat = parseFinchTree
+    toFormat (ProofTree t) = TextFormat $ fitchStyle 1 t
+    parseFormat = parseFitchTree
 
-parseFinchTree :: (Stream s m Char, Formattable a s) => ParsecT s u m (ProofTree a)
-parseFinchTree = do
+--instance Formattable a (TexFormat String) => Formattable (ProofTree a) (TexFormat String) where
+--    toFormat (ProofTree t) = TexFormat $ bussproof 0 t
+--    parseFormat = undefined
+
+instance (Formattable a (TexFormat String), Formattable b (TexFormat String)) => Formattable (ProofTree (a,b)) (TexFormat String) where
+    toFormat (ProofTree t) = TexFormat $ bussproofAnnot 0 t
+    parseFormat = undefined
+
+parseFitchTree :: (Stream s m Char, Formattable a s) => ParsecT s u m (ProofTree a)
+parseFitchTree = do
     ls <- many1 $ do
       ind <- many spaces
       t <- parseFormat
       return (length ind, t)
     let (t:ts) = reverse ls
-    return $ ProofTree $ unfoldFinchTree t ts
+    return $ ProofTree $ unfoldFitchTree t ts
 
-finchStyle :: (Formattable a (TextFormat String))=> Tree a -> Int -> String
--- finchStyle (Node t []) n = take n (repeat ' ') ++ toFormat t
-finchStyle (Node t xs) n = concatMap (\x -> finchStyle x (n+1) ++ "\n") xs ++ concat (replicate (n-1) "| " ++ ["+ "]) ++ toFormat t
+fitchStyle :: (Formattable a (TextFormat String))=> Int -> Tree a -> String
+-- fitchStyle (Node t []) n = take n (repeat ' ') ++ toFormat t
+fitchStyle n (Node t xs) = concatMap (\x -> fitchStyle (n+1) x ++ "\n") xs ++ concat (replicate (n-1) "| " ++ ["+ "]) ++ toFormat t
 
-unfoldFinchTree :: Ord t => (t, a) -> [(t, a)] -> Tree a
-unfoldFinchTree (_, t) [] = Node t []
-unfoldFinchTree (_, t) ts = Node t ts'
+bussproof :: (Formattable a (TexFormat String))=> Int -> Tree a -> String
+-- fitchStyle (Node t []) n = take n (repeat ' ') ++ toFormat t
+bussproof n (Node t ts) = concat (map (\x -> bussproof (n+1) x ++ "\n") ts ++ replicate n "  " ++ ["\\", ["AxiomC", "BinaryInfC", "TenaryInfC"] !! length ts, "{", toString (toFormat t :: TexFormat String), "}"])
+
+bussproofAnnot :: (Formattable a (TexFormat String), Formattable b (TexFormat String))=> Int -> Tree (a, b) -> String
+-- fitchStyle (Node t []) n = take n (repeat ' ') ++ toFormat t
+bussproofAnnot n (Node (t,l) ts) = concat $ children ++ indent n ++ insn
     where
-      ts' = map (\(x:xs) -> unfoldFinchTree x xs) $ unfoldIndentedTree ts
+      nchild = length ts
+      children = if nchild == 0 then indent (n+1) ++ ["\\AxiomC{}\n"] else map (\x -> bussproofAnnot (n+1) x ++ "\n") ts
+      indent i = replicate i "  "
+      insn = ["\\RightLabel{" ++ texString l ++ "}", "\\", ["UnaryInfC", "UnaryInfC", "BinaryInfC", "TriaryInfC"] !! nchild, "{", texString t, "}"]
+      texString :: (Formattable a (TexFormat String))=> a -> String
+      texString x = toString (toFormat x :: TexFormat String)
+
+unfoldFitchTree :: Ord t => (t, a) -> [(t, a)] -> Tree a
+unfoldFitchTree (_, t) [] = Node t []
+unfoldFitchTree (_, t) ts = Node t ts'
+    where
+      ts' = map (\(x:xs) -> unfoldFitchTree x xs) $ unfoldIndentedTree ts
 
 unfoldIndentedTree :: Ord t => [(t, a)] -> [[(t, a)]]
 unfoldIndentedTree [] = []

@@ -38,12 +38,12 @@ instance (Formattable a (TextFormat String), Ord a)=>Formattable (Sequent a) (Te
         return $ Sequent (MS.fromList ls, MS.fromList rs)
 
 instance (Formattable a (TexFormat String), Ord a)=>Formattable (Sequent a) (TexFormat String) where
-  toFormat (Sequent (l, r)) = TexFormat $ conv l ++ " \vdash " ++ conv r
+  toFormat (Sequent (l, r)) = TexFormat $ "\\ensuremath{" ++ conv l ++ " \\vdash " ++ conv r ++ "}"
       where
         conv ms = intercalate ", " (map ((\(TexFormat x) -> x) .  toFormat) (MS.toList ms))
   parseFormat = do
         ls <- many (parseFormat <* spaces <* string "," <* spaces)
-        string "\vdash" >> spaces
+        string "\\vdash" >> spaces
         rs <- many (parseFormat <* spaces <* string "," <* spaces)
         return $ Sequent (MS.fromList ls, MS.fromList rs)
 
@@ -62,12 +62,17 @@ data InferRule a = StructureRule (Sequent a -> Maybe [Sequent a])
                  | FormulaeRule (a -> (MultiSet a, MultiSet a) -> Sequent a -> Maybe [Sequent a])
 
 instance (Formattable a (TextFormat String))=> Formattable (ApplicableRule a) (TextFormat String) where
-    toFormat (ApplicableRule(r, "", _)) = TextFormat $ paren r
-    toFormat (ApplicableRule(r, arg, _)) = TextFormat $ paren (r ++ " " ++ arg)
+    toFormat (ApplicableRule(r, "", _)) = TextFormat r
+    toFormat (ApplicableRule(r, arg, _)) = TextFormat $ r ++ " " ++ arg
+    parseFormat = undefined
+
+instance (Formattable a (TexFormat String))=> Formattable (ApplicableRule a) (TexFormat String) where
+    toFormat (ApplicableRule(r, "", _)) = TexFormat $ "\\texttt{" ++ r ++ "}"
+    toFormat (ApplicableRule(r, arg, _)) = TexFormat $ "\\texttt{" ++ r ++ " " ++ arg ++ "}"
     parseFormat = undefined
 
 instance (Formula a, Formattable a (TextFormat String), Ord a)=> Formattable (Sequent a, ApplicableRule a) (TextFormat String) where
-    toFormat (s, r) = TextFormat $ toFormat s ++ " " ++ toFormat r
+    toFormat (s, r) = TextFormat $ toFormat s ++ " " ++ paren (toFormat r)
     parseFormat = do
       s <- parseFormat <* spaces
       r <- parseFormat

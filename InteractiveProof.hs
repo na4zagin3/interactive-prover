@@ -3,6 +3,7 @@ module InteractiveProof where
 
 import Prelude hiding (foldr, foldl)
 import Data.Foldable (Foldable, foldr, foldl)
+import Data.String
 import Data.Typeable
 import Data.Functor.Identity
 import Text.Parsec
@@ -41,6 +42,9 @@ parseLine putLn getLn n p = do
     let f = fmap (parse p n) getLn >>= either (\x -> putLn (show x) >> f) return
     f
 
+class Format a b where
+    toString :: a -> b
+
 class Formattable a b where
     toFormat :: a -> b
     parseFormat :: Stream b m Char => ParsecT b u m a
@@ -67,6 +71,12 @@ newtype TexFormat a = TexFormat a
 --    deriving (Typeable)
 newtype TextFormat a = TextFormat a
 --    deriving (Typeable)
+
+instance (IsString a) => Format (TexFormat a) a where
+    toString (TexFormat x) = x
+
+instance (IsString b) => Format (TextFormat a) a where
+    toString (TextFormat x) = x
 
 instance (Stream s m t, Functor m) => Stream (TexFormat s) m t where
     uncons (TexFormat x) = fmap (fmap (_2 %~ TexFormat)) $ uncons x

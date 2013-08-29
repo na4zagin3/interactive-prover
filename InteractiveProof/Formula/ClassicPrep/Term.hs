@@ -31,14 +31,14 @@ instance Formattable Term (TextFormat String) where
     parseFormat = parseTerm textSymbol
 
 instance Formattable Term (TexFormat String) where
-    toFormat = fmap TexFormat $ showTerm texSymbol
+    toFormat t = TexFormat $ "\\ensuremath{" ++ showTerm texSymbol t ++ "}"
     parseFormat = parseTerm texSymbol
 
 textSymbol :: TermSymbols
 textSymbol = ("_", "~", "/\\", "\\/", "->")
 
 texSymbol :: TermSymbols
-texSymbol = ("\bot", "\\lnot", "\\land", "\\lor", "\\to")
+texSymbol = ("\\bot", "\\lnot", "\\land", "\\lor", "\\to")
 
 showTerm :: TermSymbols -> Term -> String
 showTerm ss Bot = ss^._1
