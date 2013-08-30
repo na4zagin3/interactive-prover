@@ -35,6 +35,7 @@ data Term = ClassicPrepTerm FCP.Term
 data Environment m = Environment { putLn :: String -> m ()
                                  , getLn :: Prompt -> m String
                                  , inputWithFile :: forall a. FilePath -> Environment m -> (Environment m -> m a) -> m a
+                                 , outputWithFile :: forall a. FilePath -> Environment m -> (Environment m -> m a) -> m a
                                  }
 
 -- wfm :: FilePath -> (StateT [String] m b) -> m b
