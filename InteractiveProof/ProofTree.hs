@@ -91,20 +91,21 @@ allOrNothingM f xs = fmap g $ takeWhileM f xs
 allJustM :: (Functor m, Monad m)=> [m (Maybe a)] -> m (Maybe [a])
 allJustM xs = fmap (fmap catMaybes) $ allOrNothingM isJust xs
 
-makeTree' :: (Monad m, Functor m, Statement a, Rule a b)=> (String -> m ()) -> (a -> [b] -> m (Maybe b)) -> (a -> [b]) -> a -> m (Maybe (Tree (a, b)))
-makeTree' putLn ask rules c = do
+makeTree' :: (Monad m, Functor m, Statement a, Rule a b)=> (String -> m ()) -> (Int -> a -> [b] -> m (Maybe b)) -> (a -> [b]) -> Int -> a -> m (Maybe (Tree (a, b)))
+makeTree' putLn ask rules n c = do
     let choices = rules c
-    rule <- ask c choices
+    rule <- ask n c choices
     case rule of
       Nothing -> return Nothing
       Just r -> f r
   where
     f rule = do
       let ps = applyRule rule c
-      pps <- allJustM $ map (makeTree' putLn ask rules) ps
-      maybe (putLn "failed." >> makeTree' putLn ask rules c) (return . Just . Node (c, rule)) pps
+      let goals = length ps
+      pps <- allJustM $ map (\(i,c')-> makeTree' putLn ask rules (goals - i) c') $ zip [1..] ps
+      maybe (putLn "failed." >> makeTree' putLn ask rules n c) (return . Just . Node (c, rule)) pps
 
-makeTree :: (Monad m, Functor m, Statement a, Rule a b)=> (String -> m ()) -> (a -> [b] -> m (Maybe b)) -> (a -> [b]) -> a -> m (Maybe (ProofTree (a, b)))
+makeTree :: (Monad m, Functor m, Statement a, Rule a b)=> (String -> m ()) -> (Int -> a -> [b] -> m (Maybe b)) -> (a -> [b]) -> a -> m (Maybe (ProofTree (a, b)))
 makeTree putLn ask rules c = do
-    ans <- makeTree' putLn ask rules c
+    ans <- makeTree' putLn ask rules 0 c
     return $ fmap ProofTree ans

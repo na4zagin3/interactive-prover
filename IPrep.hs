@@ -4,7 +4,8 @@
 module IPrep where
 -- import Control.Arrow
 -- import Control.Monad
-import Control.Applicative ((<$>),(*>),(<*),pure)
+--import Control.Applicative ((<$>),(*>),(<*),pure)
+import Control.Applicative ((*>),(<*))
 import InteractiveProof
 import InteractiveProof.Formula
 import qualified InteractiveProof.Formula.ClassicPrep as FCP
@@ -12,12 +13,13 @@ import InteractiveProof.ProofTree
 import Data.List
 import Data.Maybe
 import Control.Monad
--- import Control.Lens
+import Control.Monad.State
+import Control.Lens()
 import System.Console.Haskeline
 
 
-import Text.Parsec
-import Text.Parsec.String
+import Text.Parsec hiding (State)
+import Text.Parsec.String()
 
 type FormulaProofObj a = (ProofTree (Sequent a, ApplicableRule a))
 
@@ -30,12 +32,20 @@ data Calculus = ClassicPrep [(String, InferRule FCP.Term)]
 
 data Term = ClassicPrepTerm FCP.Term
 
+data Environment m = Environment { putLn :: String -> m ()
+                                 , getLn :: Prompt -> m String
+                                 , envWithFile :: forall a. FilePath -> Environment m -> (Environment m -> m a) -> m a
+                                 }
+
+-- wfm :: FilePath -> (StateT [String] m b) -> m b
+-- wfm' :: FilePath -> (StateT [String] (StateT [String] m b) b) -> (StateT [String] m b) b
+
 instance Formattable Proof (TextFormat String) where
-    toFormat po@(ClassicPrepProof (thm, p)) = TextFormat $ case toFormat p of
+    toFormat po@(ClassicPrepProof (_, p)) = TextFormat $ case toFormat p of
                                                              TextFormat str -> "thm:" ++ getProofFullName po ++ "\n" ++ str
 
 instance Formattable Proof (TexFormat String) where
-    toFormat po@(ClassicPrepProof (thm, p)) = TexFormat $ case toFormat p of
+    toFormat po@(ClassicPrepProof (_, p)) = TexFormat $ case toFormat p of
                                                             TexFormat str -> "\\begin{theorem}[" ++ getProofFullName po ++ "]\n\\begin{proof}\n" ++ str ++ "\n\\end{proof}\n\\end{theorem}"
 
 getProofFullName :: Proof -> String
@@ -59,59 +69,61 @@ data Command a b c = Abort
                    | Command a
                    | Extract b c String
                    | Info
+                   | ReadFile FilePath
 -- import Text.Parsec.String
 
 -- newtype Variable = Variable String
 --           deriving (Show, Eq, Ord, Read)
 
 -- pTree :: (Show a, Statement a, Rule a (Redex a), LambdaContext a c)=> [(String, ReductionStep a)] -> a -> IO (Maybe (Tree (a, Redex a)))
-pTree :: (Functor m, Monad m, Formattable a (TextFormat String), Formattable a (TexFormat String), Formula a, Ord a) => [(String, InferRule a)] -> (String -> m ()) -> (Prompt -> m String) -> Sequent a -> m (Maybe (ProofTree (Sequent a, ApplicableRule a)))
-pTree steps putLn getLn = makeTree putLn ask rules
+pTree :: (Functor m, Monad m, Formattable a (TextFormat String), Formattable a (TexFormat String), Formula a, Ord a) => [(String, InferRule a)] -> Environment m -> Sequent a -> m (Maybe (ProofTree (Sequent a, ApplicableRule a)))
+pTree steps env = makeTree envPutLn ask rules
   where
     rules _ = []
-    ask t cs = do
-      putLn $ toFormat t
-      ans <- parseLine putLn (getLn (Proving 0)) "tactic" $ pFail <|> pHelp <|> liftM Command (parseStep t steps)
+    ask n t cs = do
+      envPutLn $ toFormat t
+      ans <- parseLine envPutLn (envGetLn (Proving n)) "tactic" $ pFail <|> pHelp <|> liftM Command (parseStep t steps)
       case ans of
         Abort -> return Nothing
-        Help -> printHelp >> ask t cs
-        Command r -> if applicableRule r t then return $ Just r else putLn "inapplicative" >> ask t cs
-    pFail = string "fail" >> return Abort
-    pHelp = string "help" >> return Help
-    printHelp = putLn $ intercalate ", " $ map usageStr steps
+        Help -> printHelp >> ask n t cs
+        Command r -> if applicableRule r t then return $ Just r else envPutLn "inapplicative" >> ask n t cs
+    pFail = try (string "fail" <|> string "abort" ) >> return Abort
+    pHelp = try (string "help") >> return Help
+    printHelp = envPutLn $ intercalate ", " $ map usageStr steps
     usageStr (n, StructureRule _) = n
     usageStr (n, VariableRule _) = n ++ " vs.."
     usageStr (n, FormulaRule _) = n ++ "(t)"
     usageStr (n, FormulaeRule _) = n ++ "(t)[l..][r..]"
+    envPutLn = putLn env
+    envGetLn = getLn env
 
-loop :: (Functor m, Monad m) => (String -> m ()) -> (Prompt -> m String) -> [Proof] -> m [Proof]
-loop putLn getLn proofs = do
-    command <- getLn Toplevel
+loop :: (Functor m, Monad m) => Environment m -> [Proof] -> m [Proof]
+loop env proofs = do
+    command <- envGetLn Toplevel
     case parse parseCommand "top level" command of
-      Left err -> putLn (show err) >> loop putLn getLn proofs
+      Left err -> envPutLn (show err) >> loop env proofs
       Right Abort -> return proofs
-      Right Help -> printHelp >> loop putLn getLn proofs
+      Right Help -> printHelp >> loop env proofs
       Right (Command c) -> proofCommandAndLoop c
       Right (Extract format calc thm) -> case find (\p -> getProofFullName p == calc ++ ":" ++ thm) proofs of
-                                           Nothing -> putLn ("Theorem " ++ thm ++ " is not found.") >> loop putLn getLn proofs
-                                           Just p -> putLn (extractString format p) >> loop putLn getLn proofs
-      Right Info -> infoCommand proofs >> loop putLn getLn proofs
+                                           Nothing -> envPutLn ("Theorem " ++ thm ++ " is not found.") >> loop env proofs
+                                           Just p -> envPutLn (extractString format p) >> loop env proofs
+      Right Info -> infoCommand proofs >> loop env proofs
+      Right (ReadFile path) -> envPutLn ("Read: " ++ path) >> (envWithFile env) path env (flip loop proofs) >>= loop env
   where
 --    proof :: (Functor m, Monad m) => [(String, InferRule a)] -> a -> m (Maybe (FormulaProofObj a))
     proof calc term = do
-      tr <- pTree calc putLn getLn (singleton term)
+      tr <- pTree calc env (singleton term)
       case tr of
-        Nothing -> putLn "Proof failed." >> return tr
+        Nothing -> envPutLn "Proof failed." >> return tr
   --      Just p -> maybe (return ()) putStrLn $ cast (toFormat p :: TextFormat String)
-        Just p -> putLn "Proof completed." >> return tr
+        Just _ -> envPutLn "Proof completed." >> return tr
     parseCommand :: (Stream s m Char)=> ParsecT s u m (Command (Calculus, String, Term) String String)
     parseCommand = do
       command <- spaces *> many1 letter <* spaces
-      case lookup command commands of
-        Nothing -> unexpected $ "command name: " ++ command
-        Just p -> p
+      fromMaybe (unexpected $ "command name: " ++ command) $ lookup command commands
     commands :: (Stream s m Char)=> [(String, ParsecT s u m (Command (Calculus, String, Term) String String))]
-    commands = [("exit", return Abort), ("help", return Help), ("thm", parseTheorem), ("theorem", parseTheorem), ("extract", parseExtract), ("info", return Info)]
+    commands = [("abort", return Abort), ("exit", return Abort), ("help", return Help), ("thm", parseTheorem), ("theorem", parseTheorem), ("extract", parseExtract), ("info", return Info), ("source", parseReadFile)]
     parseTheorem :: (Stream s m Char)=> ParsecT s u m (Command (Calculus, String, Term) a b)
     parseTheorem = fmap Command $ do
       calcName <- many1 letter <* spaces
@@ -131,32 +143,63 @@ loop putLn getLn proofs = do
       string ":"
       thmName <- many1 letter <* spaces
       return $ Extract format calcName thmName
-    printHelp = putLn "help, exit, theorem:<type> <name>:<theorem>, extract:<type> <name>, info"
-    proofCommandAndLoop (ClassicPrep calc, thm, ClassicPrepTerm term) = proof calc term >>= (loop putLn getLn . maybe proofs (\p -> ClassicPrepProof (thm, p) : proofs))
+    parseReadFile :: (Stream s m Char)=> ParsecT s u m (Command a String String)
+    parseReadFile = do
+      path <- spaces *> stringLiteral <|> many1 (noneOf " \t\n\"")
+      return $ ReadFile path
+    printHelp = envPutLn "help, exit, theorem:<type> <name>:<theorem>, extract:<type> <name>, info, source <file>"
+    proofCommandAndLoop (ClassicPrep calc, thm, ClassicPrepTerm term) = proof calc term >>= (loop env . maybe proofs (\p -> ClassicPrepProof (thm, p) : proofs))
 --    infoCommand :: [Proof] -> m ()
-    infoCommand proofs = forM_ names putLn
+    infoCommand proofs' = forM_ names envPutLn
                     where
-                      names = map (("thm:"++) . getProofFullName) proofs
+                      names = map (("thm:"++) . getProofFullName) proofs'
     extractString :: (Formattable a (TextFormat String), Formattable a (TexFormat String), Formattable a String) => String -> a -> String
     extractString format p = case format of
                           "text" -> toFormat p
                           "tex" -> toString (toFormat p :: TexFormat String)
                           _ -> "format not found."
+    envPutLn = putLn env
+    envGetLn = getLn env
+    escapeOrStringChar :: (Stream s m Char)=> ParsecT s u m Char
+    escapeOrStringChar = try (string "\\" >> ((string "\\" >> return '\\') <|> (string "\"" >> return '"'))) <|> anyChar
+    stringLiteral :: (Stream s m Char)=> ParsecT s u m String
+    stringLiteral = do
+      char '"'
+      str <- many1 escapeOrStringChar
+      char '"' <?> "end of string"
+      return str
 
 main :: IO ()
-main = runInputT haskelineSettings (void $ loop putLn getLn [])
+main = runInputTBehaviorWithPrefs haskelineBehavior defaultPrefs haskelineSettings (void $ loop hlineEnv [])
     where 
-      putLn = outputStrLn
+      hlineEnv = Environment { putLn = putLn', getLn = getLn', envWithFile = envWithFile' }
+      putLn' = outputStrLn
       promptStr Toplevel = "% "
       promptStr (Proving n) = show n ++ "> "
-      getLn pstr =  do
+      getLn' pstr =  do
         minput <- getInputLine $ promptStr pstr
         case minput of
-          Nothing -> getLn pstr
+          Nothing -> getLn' pstr
           Just input -> return input
+--      envWithFile' :: (MonadException m) => FilePath -> Environment (InputT m) -> (Environment (InputT m) -> InputT m a) -> InputT m a
+      envWithFile' path env f = lift $ runInputTBehavior (useFile path) haskelineSettings (f (Environment { putLn = putLn env, getLn = \_ -> liftM (maybe "abort" id) $ getInputLine "", envWithFile = envWithFile env }))
 
-      haskelineSettings = Settings {
-                 complete = completeFilename,
-                 historyFile = Just ".ilhist",
-                 autoAddHistory = True
-                 }
+
+haskelineSettings :: (MonadIO m) =>Settings m
+haskelineSettings = Settings {
+           complete = completeFilename,
+           historyFile = Just ".ilhist",
+           autoAddHistory = True
+           }
+
+haskelineBehavior :: Behavior
+haskelineBehavior = defaultBehavior
+
+pop :: (Monad m)=> StateT [a] m (Maybe a)
+pop = do
+    l <- get
+    if null l
+      then return Nothing
+      else do
+        put $ tail l
+        return . Just $ head l
