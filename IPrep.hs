@@ -34,7 +34,7 @@ data Term = ClassicPrepTerm FCP.Term
 
 data Environment m = Environment { putLn :: String -> m ()
                                  , getLn :: Prompt -> m String
-                                 , envWithFile :: forall a. FilePath -> Environment m -> (Environment m -> m a) -> m a
+                                 , inputWithFile :: forall a. FilePath -> Environment m -> (Environment m -> m a) -> m a
                                  }
 
 -- wfm :: FilePath -> (StateT [String] m b) -> m b
@@ -109,7 +109,7 @@ loop env proofs = do
                                            Nothing -> envPutLn ("Theorem " ++ thm ++ " is not found.") >> loop env proofs
                                            Just p -> envPutLn (extractString format p) >> loop env proofs
       Right Info -> infoCommand proofs >> loop env proofs
-      Right (ReadFile path) -> envPutLn ("Read: " ++ path) >> (envWithFile env) path env (flip loop proofs) >>= loop env
+      Right (ReadFile path) -> envPutLn ("Read: " ++ path) >> (inputWithFile env) path env (flip loop proofs) >>= loop env
   where
 --    proof :: (Functor m, Monad m) => [(String, InferRule a)] -> a -> m (Maybe (FormulaProofObj a))
     proof calc term = do
@@ -172,7 +172,7 @@ loop env proofs = do
 main :: IO ()
 main = runInputTBehaviorWithPrefs haskelineBehavior defaultPrefs haskelineSettings (void $ loop hlineEnv [])
     where 
-      hlineEnv = Environment { putLn = putLn', getLn = getLn', envWithFile = envWithFile' }
+      hlineEnv = Environment { putLn = putLn', getLn = getLn', inputWithFile = envWithFile' }
       putLn' = outputStrLn
       promptStr Toplevel = "% "
       promptStr (Proving n) = show n ++ "> "
@@ -182,7 +182,7 @@ main = runInputTBehaviorWithPrefs haskelineBehavior defaultPrefs haskelineSettin
           Nothing -> getLn' pstr
           Just input -> return input
 --      envWithFile' :: (MonadException m) => FilePath -> Environment (InputT m) -> (Environment (InputT m) -> InputT m a) -> InputT m a
-      envWithFile' path env f = lift $ runInputTBehavior (useFile path) haskelineSettings (f (Environment { putLn = putLn env, getLn = \_ -> liftM (maybe "abort" id) $ getInputLine "", envWithFile = envWithFile env }))
+      envWithFile' path env f = lift $ runInputTBehavior (useFile path) haskelineSettings (f (Environment { putLn = putLn env, getLn = \_ -> liftM (maybe "abort" id) $ getInputLine "", inputWithFile = inputWithFile env }))
 
 
 haskelineSettings :: (MonadIO m) =>Settings m
