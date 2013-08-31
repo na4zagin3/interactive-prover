@@ -16,12 +16,19 @@ cabal-version:       >=1.8
 
 library
   exposed-modules:     InteractiveProof.ProofTree
+                       InteractiveProof.Type
+                       InteractiveProof.Type.Simple
                        InteractiveProof.Formula
+                       InteractiveProof.Formula.TypeEquation
+                       InteractiveProof.Formula.TypeEnvironment
                        InteractiveProof.Formula.ClassicPrep
                        InteractiveProof.Formula.ClassicPrep.Term
                        InteractiveProof.Formula.ClassicPrep.Sentence
                        InteractiveProof.Lambda
                        InteractiveProof.Lambda.LambdaB
+                       InteractiveProof.Lambda.SimplyTyped
+                       InteractiveProof.Lambda.SimplyTyped.Term
+                       InteractiveProof.Lambda.SimplyTyped.TypingTree
   build-depends:       base ==4.6.*,
                        parsec >= 3.1 && < 4,
                        lens >= 3.5 && < 4,
