@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FlexibleContexts,
   UndecidableInstances #-}
 
-module InteractiveProof.Lambda.SimplyTyped.TypingTree (steps) where
+module InteractiveProof.Lambda.SimplyTyped.TypingTree (TypingExpr,typingSteps) where
 
 import InteractiveProof
 -- import InteractiveProof.ProofTree
@@ -19,13 +19,13 @@ import qualified Data.MultiSet as MS
 import Text.Parsec
 -- import Text.Parsec.String
 
-data Expr = Env (TypeEnvironment Type)
-          | Expr Term
+data TypingExpr = Env (TypeEnvironment Type)
+                | Expr Term
 
-instance Formula Expr where
+instance Formula TypingExpr where
     parseFormula = liftM Env parseFormula <|> liftM Expr parseFormula
 
-instance (Monoid b, Formattable Term b, Formattable (TypeEnvironment Type) b)=> Formattable Expr b where
+instance (Monoid b, Formattable Term b, Formattable (TypeEnvironment Type) b)=> Formattable TypingExpr b where
     parseFormat = liftM Env parseFormat <|> liftM Expr parseFormat
     toFormat (Expr e) = toFormat e
     toFormat (Env env) = toFormat env
@@ -86,5 +86,5 @@ steps = [ ("I", StructureRule iden)
 
 -}
 
-steps :: [(String, InferRule Term)]
-steps = [ ("I", StructureRule iden) ]
+typingSteps :: [(String, InferRule Term)]
+typingSteps = [ ("I", StructureRule iden) ]
