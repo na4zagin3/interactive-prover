@@ -4,6 +4,8 @@ module InteractiveProof.ProofTree where
 
 -- import Control.Monad
 import InteractiveProof
+import Data.Monoid 
+import Data.String
 import Data.Tree 
 import Data.Maybe 
 import Text.Parsec
@@ -23,12 +25,12 @@ class Rule a b | b -> a where
     applicableRule :: (Statement a, Rule a b)=> b -> a -> Bool
 
 instance Formattable a (TextFormat String) => Formattable (ProofTree a) (TextFormat String) where
-    toFormat (ProofTree t) = TextFormat $ fitchStyle 1 t
+    toFormat (ProofTree t) = fitchStyle 1 t
     parseFormat = parseFitchTree
 
---instance Formattable a (TexFormat String) => Formattable (ProofTree a) (TexFormat String) where
---    toFormat (ProofTree t) = TexFormat $ bussproof 0 t
---    parseFormat = undefined
+instance Formattable a (TexFormat String) => Formattable (ProofTree a) (TexFormat String) where
+    toFormat (ProofTree t) = bussproof 0 t
+    parseFormat = undefined
 
 instance (Formattable a (TexFormat String), Formattable b (TexFormat String)) => Formattable (ProofTree (a,b)) (TexFormat String) where
     toFormat (ProofTree t) = TexFormat $ bussproofAnnot 0 t
@@ -43,13 +45,22 @@ parseFitchTree = do
     let (t:ts) = reverse ls
     return $ ProofTree $ unfoldFitchTree t ts
 
-fitchStyle :: (Formattable a (TextFormat String))=> Int -> Tree a -> String
+fitchStyle :: (Formattable a (m String), Monoid (m String), Monad m)=> Int -> Tree a -> m String
 -- fitchStyle (Node t []) n = take n (repeat ' ') ++ toFormat t
-fitchStyle n (Node t xs) = concatMap (\x -> fitchStyle (n+1) x ++ "\n") xs ++ concat (replicate (n-1) "| " ++ ["+ "]) ++ toFormat t
+fitchStyle n (Node t xs) = mconcat [children, indent, content]
+    where
+      children = mconcat $ map (\x -> fitchStyle (n+1) x `mappend` return "\n") xs
+      indent = mconcat $ map return (replicate (n-1) "| " `mappend` ["+ "])
+      content = toFormat t
 
-bussproof :: (Formattable a (TexFormat String))=> Int -> Tree a -> String
+bussproof :: (Formattable a (m String), Monoid (m String), Monad m)=> Int -> Tree a -> m String
 -- fitchStyle (Node t []) n = take n (repeat ' ') ++ toFormat t
-bussproof n (Node t ts) = concat (map (\x -> bussproof (n+1) x ++ "\n") ts ++ replicate n "  " ++ ["\\", ["AxiomC", "BinaryInfC", "TenaryInfC"] !! length ts, "{", toString (toFormat t :: TexFormat String), "}"])
+bussproof n (Node t xs) = mconcat [children, indent, content]
+    where
+      children = mconcat $ map (\x -> bussproof (n+1) x `mappend` return "\n") xs
+      indent = return $ concat $ replicate n "  "
+      insn = mconcat $ map return ["\\", ["AxiomC", "BinaryInfC", "TenaryInfC"] !! length xs]
+      content = mconcat [insn, return "{", toFormat t, return "}"]
 
 bussproofAnnot :: (Formattable a (TexFormat String), Formattable b (TexFormat String))=> Int -> Tree (a, b) -> String
 -- fitchStyle (Node t []) n = take n (repeat ' ') ++ toFormat t
