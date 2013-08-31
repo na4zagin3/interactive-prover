@@ -11,7 +11,9 @@ import InteractiveProof
 import InteractiveProof.ProofTree
 import Control.Applicative ((<*),(*>))
 import Control.Monad
+import Data.String
 import Data.List
+import Data.Monoid
 import Data.Maybe
 import Data.MultiSet (MultiSet)
 import qualified Data.MultiSet as MS
@@ -72,7 +74,7 @@ instance (Formattable a (TexFormat String))=> Formattable (ApplicableRule a) (Te
     parseFormat = undefined
 
 instance (Formula a, Formattable a (TextFormat String), Ord a)=> Formattable (Sequent a, ApplicableRule a) (TextFormat String) where
-    toFormat (s, r) = TextFormat $ toFormat s ++ " " ++ paren (toFormat r)
+    toFormat (s, r) = toFormat s `mappend` return " " `mappend` parenM (toFormat r)
     parseFormat = do
       s <- parseFormat <* spaces
       r <- parseFormat
@@ -85,27 +87,29 @@ instance Show (ApplicableRule a) where
     show (ApplicableRule (n, d, _)) = paren $ "ApplicableRule " ++ n ++ " " ++ d
 
 --    parseFormat :: Stream b m Char => ParsecT b u m a
-parseStep :: (Ord a, Stream b m Char, Formattable a b, Formattable a (TextFormat String), Formula a)=> Sequent a -> [(String, InferRule a)] -> ParsecT b u m (ApplicableRule a)
+parseStep :: (IsString String, Ord a, Stream b m Char, Formattable a b, Formattable a (TextFormat String), Formula a)=> Sequent a -> [(String, InferRule a)] -> ParsecT b u m (ApplicableRule a)
 parseStep _ ss = do
       rn <- many1 letter <* spaces
-      case lookup (toFormat rn) ss of
-        Nothing -> unexpected ("step name:" ++ toFormat rn)
+      case lookup (toString rn) ss of
+        Nothing -> unexpected ("step name:" ++ toString rn)
         Just (StructureRule r) -> return $ ApplicableRule (rn, "", r)
         Just (VariableRule r) -> do
           vs <- pVars
-          return $ ApplicableRule (rn, unwords $ map toFormat vs, r vs)
+          return $ ApplicableRule (rn, toString $ mconcat $ intersperse " " $ map toString vs, r vs)
         Just (FormulaRule r) -> do
           f <- string "(" *> pTerm <* string ")"
-          return $ ApplicableRule (rn, paren $ toFormat f, r f)
+          return $ ApplicableRule (rn, toString' $ parenM $ (toFormat f :: TextFormat String) :: String, r f)
         Just (FormulaeRule r) -> do
           f <- string "(" *> pTerm <* string ")" <* spaces
           ls <- delimited (string "[" >> spaces) (string "," >> spaces) pTerm (string "]" >> spaces) <* spaces
           rs <- delimited (string "[" >> spaces) (string "," >> spaces) pTerm (string "]" >> spaces)
-          return $ ApplicableRule (rn, unwords [paren $ toFormat f, "[", strSeq ls, "]", "[", strSeq rs, "]"], r f (MS.fromList ls, MS.fromList rs))
+          return $ ApplicableRule (rn, toString' . mconcat $ [parenM $ (toFormat f :: TextFormat String), return " [", strSeq ls, return "] [", strSeq rs, return "]"], r f (MS.fromList ls, MS.fromList rs))
     where
       pVars = many1 $  many1 letter <* spaces
       pTerm = parseFormat
-      strSeq fs = intercalate ", " $ map toFormat fs
+      strSeq fs = mconcat $ (intersperse (return ", " :: TextFormat String)) $ map toFormat fs
+      toString' :: (IsString String)=>(TextFormat String) -> String
+      toString' = toString
 
 delimited :: Stream b m Char => ParsecT b u m c -> ParsecT b u m d -> ParsecT b u m a -> ParsecT b u m e -> ParsecT b u m [a]
 delimited l s p r = l >> (((p >>= \h -> liftM (h:) (many (s *> p)) <|> liftM return p ) <* r) <|> (r >> return []))

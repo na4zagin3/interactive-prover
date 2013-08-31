@@ -15,16 +15,19 @@ type Variable = String
 
 type RuleDialog a = a -> [String] -> IO Int
 
-chooseRule :: (Formattable a String) => Int -> RuleDialog a
+chooseRule :: (Formattable a (TextFormat String)) => Int -> RuleDialog a
 chooseRule n t sps = do
-    putStrLn $ toFormat t
+    putStrLn . toString $ (toFormat t :: TextFormat String)
     mapM_ (putStrLn . \(i,str) -> show i ++ ": " ++ str) $ zip [(0::Integer)..] sps
     putStr (show n ++ ">")
     fmap read getLine
 
 
+parenM :: (Monad m, Monoid (m String))=> m String -> m String
+parenM x = return "(" `mappend` x `mappend` return ")"
+
 paren :: String -> String
-paren x = "(" ++ x ++ ")"
+paren x = "(" `mappend` x `mappend` ")"
 
 unfoldL :: (a -> a -> a) -> a -> [a] -> a
 unfoldL c x ys = unfoldL' c x $ reverse ys
@@ -39,6 +42,11 @@ unfoldR _ x [] = x
 unfoldR c x [y] = c x y
 unfoldR c x (y:ys) = c y (unfoldR c x ys)
 
+parseLineM :: (Functor m, Monad m, Stream b Identity Char)=>(String -> m ()) -> m String -> String -> (String -> b) -> Parsec b () a -> m a
+parseLineM putLn getLn n trans p = do
+    let f = fmap (parse p n . trans) getLn >>= either (\x -> putLn (show x) >> f) return
+    f
+
 parseLine :: (Functor m, Monad m)=>(String -> m ()) -> m String -> String -> Parser a -> m a
 parseLine putLn getLn n p = do
     let f = fmap (parse p n) getLn >>= either (\x -> putLn (show x) >> f) return
@@ -46,6 +54,9 @@ parseLine putLn getLn n p = do
 
 class Format a b where
     toString :: a -> b
+
+instance (IsString a) => Format a a where
+    toString x = x
 
 class (Monoid b)=>Formattable a b where
     toFormat :: a -> b
@@ -57,12 +68,6 @@ instance Formattable String (TextFormat String) where
     toFormat = TextFormat . id
     fromFormat (TextFormat str) = Just str
     parseFormat = many anyChar
-
-instance (Formattable a (TextFormat String))=> Formattable a String where
-    toFormat x = case toFormat x of
-                    (TextFormat str) -> str
-    fromFormat = fromFormat . TextFormat
-    parseFormat = undefined
 
 instance Formattable (TexFormat String) (TextFormat String) where
     toFormat (TexFormat str) = TextFormat str
@@ -92,10 +97,10 @@ instance Monad TextFormat where
     _ >> tf = tf
     return = TextFormat
 
-instance (IsString a) => Format (TexFormat a) a where
+instance Format (TexFormat a) a where
     toString (TexFormat x) = x
 
-instance (IsString b) => Format (TextFormat a) a where
+instance Format (TextFormat a) a where
     toString (TextFormat x) = x
 
 instance (Stream s m t, Functor m) => Stream (TexFormat s) m t where

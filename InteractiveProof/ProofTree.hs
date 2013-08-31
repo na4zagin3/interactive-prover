@@ -1,11 +1,12 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleContexts, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving #-}
 
 module InteractiveProof.ProofTree where
 
 -- import Control.Monad
+import Prelude hiding (concat)
 import InteractiveProof
-import Data.Monoid 
-import Data.String
+import Data.Foldable
+import Data.Monoid
 import Data.Tree 
 import Data.Maybe 
 import Text.Parsec
@@ -13,6 +14,9 @@ import Text.Parsec
 class Statement a
 
 newtype ProofTree a = ProofTree (Tree a)
+                deriving (Show, Eq)
+
+newtype AnnotatedProofTree a = AnnotatedProofTree (ProofTree a)
                 deriving (Show, Eq)
 
 type CandidateRule a = a -> Maybe [a]
@@ -28,12 +32,16 @@ instance Formattable a (TextFormat String) => Formattable (ProofTree a) (TextFor
     toFormat (ProofTree t) = fitchStyle 1 t
     parseFormat = parseFitchTree
 
-instance Formattable a (TexFormat String) => Formattable (ProofTree a) (TexFormat String) where
+instance (Statement a, Formattable a (TexFormat String)) => Formattable (ProofTree a) (TexFormat String) where
     toFormat (ProofTree t) = bussproof 0 t
     parseFormat = undefined
 
-instance (Formattable a (TexFormat String), Formattable b (TexFormat String)) => Formattable (ProofTree (a,b)) (TexFormat String) where
-    toFormat (ProofTree t) = TexFormat $ bussproofAnnot 0 t
+instance (Formattable a (TextFormat String), Formattable b (TextFormat String)) => Formattable (AnnotatedProofTree (a,b)) (TextFormat String) where
+    toFormat (AnnotatedProofTree (ProofTree t)) = fitchStyle 1 (fmap (\(a,b)-> toString $ mconcat [parenM $ toFormat a :: TextFormat String, return "  ", toFormat b]) t :: Tree String)
+    parseFormat = undefined
+
+instance (Formattable a (TexFormat String), Formattable b (TexFormat String)) => Formattable (AnnotatedProofTree (a,b)) (TexFormat String) where
+    toFormat (AnnotatedProofTree (ProofTree t)) = bussproofAnnot 0 t
     parseFormat = undefined
 
 parseFitchTree :: (Stream s m Char, Formattable a s) => ParsecT s u m (ProofTree a)
@@ -62,16 +70,14 @@ bussproof n (Node t xs) = mconcat [children, indent, content]
       insn = mconcat $ map return ["\\", ["AxiomC", "BinaryInfC", "TenaryInfC"] !! length xs]
       content = mconcat [insn, return "{", toFormat t, return "}"]
 
-bussproofAnnot :: (Formattable a (TexFormat String), Formattable b (TexFormat String))=> Int -> Tree (a, b) -> String
+bussproofAnnot :: (Formattable a (m String), Formattable b (m String), Monad m)=> Int -> Tree (a, b) -> m String
 -- fitchStyle (Node t []) n = take n (repeat ' ') ++ toFormat t
-bussproofAnnot n (Node (t,l) ts) = concat $ children ++ indent n ++ insn
+bussproofAnnot n (Node (t,l) ts) = mconcat [children, indent n, insn]
     where
       nchild = length ts
-      children = if nchild == 0 then indent (n+1) ++ ["\\AxiomC{}\n"] else map (\x -> bussproofAnnot (n+1) x ++ "\n") ts
-      indent i = replicate i "  "
-      insn = ["\\RightLabel{" ++ texString l ++ "}", "\\", ["UnaryInfC", "UnaryInfC", "BinaryInfC", "TriaryInfC"] !! nchild, "{", texString t, "}"]
-      texString :: (Formattable a (TexFormat String))=> a -> String
-      texString x = toString (toFormat x :: TexFormat String)
+      children = if nchild == 0 then indent (n+1) `mappend` return "\\AxiomC{}\n" else mconcat $ map (\x -> bussproofAnnot (n+1) x `mappend` return "\n") ts
+      indent i = return $ concat $ replicate i "  "
+      insn = mconcat [return "\\RightLabel{", toFormat l, return "}\\", return (["UnaryInfC", "UnaryInfC", "BinaryInfC", "TriaryInfC"] !! nchild), return "{", toFormat t, return "}"]
 
 unfoldFitchTree :: Ord t => (t, a) -> [(t, a)] -> Tree a
 unfoldFitchTree (_, t) [] = Node t []

@@ -24,7 +24,7 @@ import System.Exit
 import Text.Parsec hiding (State)
 import Text.Parsec.String()
 
-type FormulaProofObj a = (ProofTree (Sequent a, ApplicableRule a))
+type FormulaProofObj a = (AnnotatedProofTree (Sequent a, ApplicableRule a))
 
 data Prompt = Toplevel
             | Proving Int
@@ -83,8 +83,10 @@ instance Formattable Proof (TextFormat String) where
                                                              TextFormat str -> "thm:" ++ getProofFullName po ++ "\n" ++ str
 
 instance Formattable Proof (TexFormat String) where
-    toFormat po@(ClassicPrepProof (_, p)) = TexFormat $ case toFormat p of
-                                                            TexFormat str -> "\\begin{theorem}[" ++ getProofFullName po ++ "]\n\\begin{prooftree}\n" ++ str ++ "\n\\end{prooftree}\n\\end{theorem}"
+    toFormat po@(ClassicPrepProof (_, p)) = mconcat [ header, toFormat p, footer]
+        where
+          header = return $ "\\begin{theorem}[" ++ getProofFullName po ++ "]\n\\begin{prooftree}\n"
+          footer = return $ "\n\\end{prooftree}\n\\end{theorem}"
 
 getProofFullName :: Proof -> String
 getProofFullName p = getCalcName p ++ ":" ++ getProofName p
@@ -115,13 +117,15 @@ data Command a b c = Abort
 --           deriving (Show, Eq, Ord, Read)
 
 -- pTree :: (Show a, Statement a, Rule a (Redex a), LambdaContext a c)=> [(String, ReductionStep a)] -> a -> IO (Maybe (Tree (a, Redex a)))
-pTree :: (Functor m, Monad m, Formattable a (TextFormat String), Formattable a (TexFormat String), Formula a, Ord a) => [(String, InferRule a)] -> Environment m -> Sequent a -> m (Maybe (ProofTree (Sequent a, ApplicableRule a)))
-pTree steps env = makeTree envPutLn ask rules
+-- m (Maybe (ProofTree (b, c)))
+-- m (Maybe (AnnotProofTree (b, c)))
+pTree :: (Functor m, Monad m, Formattable a (TextFormat String), Formattable a (TexFormat String), Formula a, Ord a) => [(String, InferRule a)] -> Environment m -> Sequent a -> m (Maybe (FormulaProofObj a))
+pTree steps env = fmap (liftM (liftM AnnotatedProofTree)) $ makeTree envPutLn ask rules
   where
     rules _ = []
     ask n t cs = do
-      envPutLn $ toFormat t
-      ans <- parseLine envPutLn (envGetLn (Proving n)) "tactic" $ spaces >> (pFail <|> pHelp <|> liftM Command (parseStep t steps))
+      envPutLn . toString $ (toFormat t :: TextFormat String)
+      ans <- parseLineM envPutLn (envGetLn (Proving n)) "tactic" TextFormat $ spaces >> (pFail <|> pHelp <|> liftM Command (parseStep t steps))
       case ans of
         Abort -> return Nothing
         Help -> printHelp >> ask n t cs
@@ -193,9 +197,9 @@ loop env proofs = do
     infoCommand proofs' = forM_ names envPutLn
                     where
                       names = map (("thm:"++) . getProofFullName) proofs'
-    extractString :: (Formattable a (TextFormat String), Formattable a (TexFormat String), Formattable a String) => String -> a -> String
+    extractString :: (Formattable a (TextFormat String), Formattable a (TexFormat String)) => String -> a -> String
     extractString format p = case format of
-                          "text" -> toFormat p
+                          "text" -> toString (toFormat p :: TexFormat String)
                           "tex" -> toString (toFormat p :: TexFormat String)
                           _ -> "format not found."
     envPutLn = putLn env
