@@ -10,12 +10,15 @@ import InteractiveProof
 import InteractiveProof.Formula
 import qualified InteractiveProof.Formula.ClassicPrep as FCP
 import InteractiveProof.ProofTree
+import Data.Monoid
 import Data.List
 import Data.Maybe
 import Control.Monad
 import Control.Monad.State
 import Control.Lens()
 import System.Console.Haskeline
+import System.Environment
+import System.Exit
 
 
 import Text.Parsec hiding (State)
@@ -25,6 +28,10 @@ type FormulaProofObj a = (ProofTree (Sequent a, ApplicableRule a))
 
 data Prompt = Toplevel
             | Proving Int
+
+data File = File [Section]
+
+data Section = Section String [Proof]
 
 data Proof = ClassicPrepProof (String, FormulaProofObj FCP.Term)
 
@@ -41,13 +48,43 @@ data Environment m = Environment { putLn :: String -> m ()
 -- wfm :: FilePath -> (StateT [String] m b) -> m b
 -- wfm' :: FilePath -> (StateT [String] (StateT [String] m b) b) -> (StateT [String] m b) b
 
+instance Formattable Section (TextFormat String) where
+    toFormat (Section name ps) = (TextFormat ("Section " ++ name ++ "\n") `mappend`) $ mconcat $ map (\p-> TextFormat "\n" `mappend` toFormat p) ps
+
+instance Formattable File (TextFormat String) where
+    toFormat (File ss) = mconcat $ map toFormat ss
+
+instance Formattable Section (TexFormat String) where
+    toFormat (Section name ps) = (TexFormat ("\\section{" ++ name ++ "}\n") `mappend`) $ mconcat $ map (\p-> TexFormat "\n" `mappend` toFormat p) ps
+
+instance Formattable File (TexFormat String) where
+    toFormat (File ss) = texOutput ss
+
+texOutput :: [Section] -> TexFormat String
+texOutput ss = (preamble `mappend` contents) `mappend` footer
+    where
+      preamble :: TexFormat String
+      preamble = mconcat $ [ TexFormat "\\documentclass[a4paper]{article}\n"
+                           , TexFormat "\\usepackage{amsmath,amsthm}\n"
+                           , TexFormat "\\usepackage{etex}\n"
+                           , TexFormat "\\usepackage{bussproofs}\n"
+                           , TexFormat "\\theoremstyle{definition}\n"
+                           , TexFormat "\\newtheorem{theorem}{Theorem}\n"
+                           , TexFormat "\\begin{document}\n"
+                           ]
+      contents :: TexFormat String
+      contents = mconcat $ map toFormat ss
+      footer :: TexFormat String
+      footer   = mconcat $ [ TexFormat "\\end{document}"
+                           ]
+
 instance Formattable Proof (TextFormat String) where
     toFormat po@(ClassicPrepProof (_, p)) = TextFormat $ case toFormat p of
                                                              TextFormat str -> "thm:" ++ getProofFullName po ++ "\n" ++ str
 
 instance Formattable Proof (TexFormat String) where
     toFormat po@(ClassicPrepProof (_, p)) = TexFormat $ case toFormat p of
-                                                            TexFormat str -> "\\begin{theorem}[" ++ getProofFullName po ++ "]\n\\begin{proof}\n" ++ str ++ "\n\\end{proof}\n\\end{theorem}"
+                                                            TexFormat str -> "\\begin{theorem}[" ++ getProofFullName po ++ "]\n\\begin{prooftree}\n" ++ str ++ "\n\\end{prooftree}\n\\end{theorem}"
 
 getProofFullName :: Proof -> String
 getProofFullName p = getCalcName p ++ ":" ++ getProofName p
@@ -67,6 +104,7 @@ calculi = [("cp", ClassicPrep FCP.steps)]
 
 data Command a b c = Abort
                    | Help
+                   | EmptyLine
                    | Command a
                    | Extract b c String
                    | Info
@@ -83,7 +121,7 @@ pTree steps env = makeTree envPutLn ask rules
     rules _ = []
     ask n t cs = do
       envPutLn $ toFormat t
-      ans <- parseLine envPutLn (envGetLn (Proving n)) "tactic" $ pFail <|> pHelp <|> liftM Command (parseStep t steps)
+      ans <- parseLine envPutLn (envGetLn (Proving n)) "tactic" $ spaces >> (pFail <|> pHelp <|> liftM Command (parseStep t steps))
       case ans of
         Abort -> return Nothing
         Help -> printHelp >> ask n t cs
@@ -105,6 +143,7 @@ loop env proofs = do
       Left err -> envPutLn (show err) >> loop env proofs
       Right Abort -> return proofs
       Right Help -> printHelp >> loop env proofs
+      Right EmptyLine -> loop env proofs
       Right (Command c) -> proofCommandAndLoop c
       Right (Extract format calc thm) -> case find (\p -> getProofFullName p == calc ++ ":" ++ thm) proofs of
                                            Nothing -> envPutLn ("Theorem " ++ thm ++ " is not found.") >> loop env proofs
@@ -121,10 +160,10 @@ loop env proofs = do
         Just _ -> envPutLn "Proof completed." >> return tr
     parseCommand :: (Stream s m Char)=> ParsecT s u m (Command (Calculus, String, Term) String String)
     parseCommand = do
-      command <- spaces *> many1 letter <* spaces
+      command <- spaces *> many letter <* spaces
       fromMaybe (unexpected $ "command name: " ++ command) $ lookup command commands
     commands :: (Stream s m Char)=> [(String, ParsecT s u m (Command (Calculus, String, Term) String String))]
-    commands = [("abort", return Abort), ("exit", return Abort), ("help", return Help), ("thm", parseTheorem), ("theorem", parseTheorem), ("extract", parseExtract), ("info", return Info), ("source", parseReadFile)]
+    commands = [("", return EmptyLine), ("qed", return EmptyLine), ("abort", return Abort), ("exit", return Abort), ("help", return Help), ("thm", parseTheorem), ("theorem", parseTheorem), ("extract", parseExtract), ("info", return Info), ("source", parseReadFile)]
     parseTheorem :: (Stream s m Char)=> ParsecT s u m (Command (Calculus, String, Term) a b)
     parseTheorem = fmap Command $ do
       calcName <- many1 letter <* spaces
@@ -171,7 +210,19 @@ loop env proofs = do
       return str
 
 main :: IO ()
-main = runInputTBehaviorWithPrefs haskelineBehavior defaultPrefs haskelineSettings (void $ loop hlineEnv [])
+main = do
+    args <- getArgs
+    let mpath = case args of
+                  [] -> Nothing
+                  [path] -> Just path
+    prover mpath
+
+prover :: Maybe FilePath -> IO ()
+prover mpath = do
+      proofs <- runInputTBehaviorWithPrefs haskelineBehavior defaultPrefs haskelineSettings (loop hlineEnv [])
+      case mpath of
+        Nothing -> return ()
+        Just path -> writeFile path $ toString $ (toFormat (File [Section "main" $ reverse proofs]) :: TexFormat String)
     where 
       hlineEnv = Environment { putLn = putLn', getLn = getLn', inputWithFile = envWithFile' }
       putLn' = outputStrLn
