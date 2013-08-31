@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FlexibleContexts,
   GADTs #-}
-module InteractiveProof.Type.Equation (Type (..), parseType, textSymbol, texSymbol, TypeSymbols) where
+module InteractiveProof.Formula.TypeEquation (Type (..), parseType, textSymbol, texSymbol, TypeSymbols) where
 
 import InteractiveProof
 import InteractiveProof.Formula
