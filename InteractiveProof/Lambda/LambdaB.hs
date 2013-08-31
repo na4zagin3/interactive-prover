@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
 
 module InteractiveProof.Lambda.LambdaB (Term (..), Context (..), steps, freeVars, vars, boundedVars, holePos, parseTerm, idValue) where
 
@@ -13,7 +13,6 @@ import Control.Monad
 import Control.Applicative ((*>),(<*))
 
 import Text.Parsec
-import Text.Parsec.String
 
 data Term = Var Variable
           | Lam Variable Term
@@ -50,19 +49,27 @@ instance LocativeTree Context where
     match = matchContext
     subtree = subContext
 
+instance Formattable Term (TextFormat String) where
+    toFormat x = TextFormat $ "(" ++ termToStr x ++ ")"
+    parseFormat = parseTerm
+
+instance Formattable Context (TextFormat String) where
+    toFormat x = TextFormat $ "(" ++ contextToStr x ++ ")"
+    parseFormat = parseContext
+
 instance Show Term where
-    show x = "(" ++ termToStr x ++ ")"
+    show x =  "(" ++ termToStr x ++ ")"
 
 instance Show Context where
-    show x = "(" ++ contextToStr x ++ ")"
+    show x =  "(" ++ contextToStr x ++ ")"
 
 
-parseTerm :: Parser Term
+parseTerm :: Stream b m Char => ParsecT b u m Term
 parseTerm = pTerm
     where
       pVar = liftM Var $ many1 letter
       pLambda = do
-        string "^" <* spaces
+        (string "^" <|> string "λ") <* spaces
         v <- many1 letter <* spaces
         string "." <* spaces
         t <- pTerm
@@ -75,6 +82,26 @@ parseTerm = pTerm
       unfoldApp x [y] = App x y
       unfoldApp x (y:ys) = App (unfoldApp x ys) y
       pAtom = (string "(" >> pTerm <* string ")") <|> pLambda <|> pVar
+
+parseContext :: Stream b m Char => ParsecT b u m Context
+parseContext = pTerm
+    where
+      pHole = (string "_" <* spaces) >> return Hole
+      pVar = liftM CVar $ many1 letter
+      pLambda = do
+        (string "^" <|> string "λ") <* spaces
+        v <- many1 letter <* spaces
+        string "." <* spaces
+        t <- pTerm
+        return $ CLam v t
+      pTerm = do
+        t1 <- pAtom
+        t2 <- many $ spaces *> pAtom
+        return $ unfoldApp t1 $ reverse t2
+      unfoldApp x [] = x
+      unfoldApp x [y] = CApp x y
+      unfoldApp x (y:ys) = CApp (unfoldApp x ys) y
+      pAtom = (string "(" >> pTerm <* string ")") <|> pLambda <|> pHole <|> pVar
 
 termToStr :: Term -> String
 termToStr (Var v)     = v

@@ -3,6 +3,7 @@ module InteractiveProof where
 
 import Prelude hiding (foldr, foldl)
 import Data.Foldable (Foldable, foldr, foldl)
+import Data.Monoid
 import Data.String
 import Data.Typeable
 import Data.Functor.Identity
@@ -14,10 +15,11 @@ type Variable = String
 
 type RuleDialog a = a -> [String] -> IO Int
 
-chooseRule :: (Formattable a String) => RuleDialog a
-chooseRule t sps = do
+chooseRule :: (Formattable a String) => Int -> RuleDialog a
+chooseRule n t sps = do
     putStrLn $ toFormat t
     mapM_ (putStrLn . \(i,str) -> show i ++ ": " ++ str) $ zip [(0::Integer)..] sps
+    putStr (show n ++ ">")
     fmap read getLine
 
 
@@ -45,7 +47,7 @@ parseLine putLn getLn n p = do
 class Format a b where
     toString :: a -> b
 
-class Formattable a b where
+class (Monoid b)=>Formattable a b where
     toFormat :: a -> b
     parseFormat :: Stream b m Char => ParsecT b u m a
     fromFormat :: Stream b Data.Functor.Identity.Identity Char => b -> Maybe a
@@ -71,6 +73,24 @@ newtype TexFormat a = TexFormat a
 --    deriving (Typeable)
 newtype TextFormat a = TextFormat a
 --    deriving (Typeable)
+
+instance (Monoid a) => Monoid (TexFormat a) where
+  mempty = TexFormat mempty
+  (TexFormat a) `mappend` (TexFormat b) = TexFormat (a `mappend` b)
+
+instance (Monoid a) => Monoid (TextFormat a) where
+  mempty = TextFormat mempty
+  (TextFormat a) `mappend` (TextFormat b) = TextFormat (a `mappend` b)
+
+instance Monad TexFormat where
+    (TexFormat str) >>= f = f str
+    _ >> tf = tf
+    return = TexFormat
+
+instance Monad TextFormat where
+    (TextFormat str) >>= f = f str
+    _ >> tf = tf
+    return = TextFormat
 
 instance (IsString a) => Format (TexFormat a) a where
     toString (TexFormat x) = x

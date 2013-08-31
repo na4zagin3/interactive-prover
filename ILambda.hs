@@ -34,23 +34,23 @@ interactiveEval dilg steps t acc = do
     let rs = concatMap (flip redexes t . (^._2)) steps
     if null rs then putStrLn "No redexes." >> return (t, reverse acc) else interactiveEvalStep dilg steps t >>= \(n, p, t') -> interactiveEval dilg steps t' ((n, p, t):acc)
 
-oldLambdaEval :: IO ()
-oldLambdaEval = do
-    putStrLn "Lambda Term"
-    t <- parseLine putStrLn getLine "LambdaTerm" LB.parseTerm
-    (r, rs) <- interactiveEval chooseRule LB.steps t []
-    print r
-    print rs
+-- oldLambdaEval :: IO ()
+-- oldLambdaEval = do
+--     putStrLn "Lambda Term"
+--     t <- parseLine putStrLn getLine "LambdaTerm" LB.parseTerm
+--     (r, rs) <- interactiveEval chooseRule LB.steps t []
+--     print r
+--     print rs
 
-lTree :: (Show a, Statement a, Rule a (Redex a), LambdaContext a c)=> [(String, ReductionStep a)] -> a -> IO (Maybe (Tree (a, Redex a)))
-lTree steps = makeTree ask rules
+lTree :: (Show a, Statement a, Rule a (Redex a), LambdaContext a c, Formattable a (TextFormat String))=> [(String, ReductionStep a)] -> a -> IO (Maybe (ProofTree (a, Redex a)))
+lTree steps = makeTree putStrLn ask rules
   where
-    rules t = allRedexes steps t ++ [Redex ("value", ReductionStep normal, [] )]
-    ask _ [] = return Nothing
-    ask t choices = do
-      ind <- chooseRule t $ map ruleDescription choices
+    rules t = [Redex ("abort", ReductionStep normal, [] )] ++ allRedexes steps t
+    ask _ _ [] = return Nothing
+    ask n t choices = do
+      ind <- chooseRule n t $ map ruleDescription choices
       return $ if ind < 0 then Nothing else Just $ choices!!ind
-    normal t = if null $ allRedexes steps t then Just t else Nothing
+    normal t = Just t
 
 main :: IO ()
 main = do
