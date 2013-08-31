@@ -71,19 +71,19 @@ texOutput :: [Section] -> TexFormat String
 texOutput ss = (preamble `mappend` contents) `mappend` footer
     where
       preamble :: TexFormat String
-      preamble = mconcat $ [ TexFormat "\\documentclass[a4paper]{article}\n"
-                           , TexFormat "\\usepackage{amsmath,amsthm}\n"
-                           , TexFormat "\\usepackage{etex}\n"
-                           , TexFormat "\\usepackage{bussproofs}\n"
-                           , TexFormat "\\theoremstyle{definition}\n"
-                           , TexFormat "\\newtheorem{theorem}{Theorem}\n"
-                           , TexFormat "\\begin{document}\n"
-                           ]
+      preamble = mconcat [ TexFormat "\\documentclass[a4paper]{article}\n"
+                         , TexFormat "\\usepackage{amsmath,amsthm}\n"
+                         , TexFormat "\\usepackage{etex}\n"
+                         , TexFormat "\\usepackage{bussproofs}\n"
+                         , TexFormat "\\theoremstyle{definition}\n"
+                         , TexFormat "\\newtheorem{theorem}{Theorem}\n"
+                         , TexFormat "\\begin{document}\n"
+                         ]
       contents :: TexFormat String
       contents = mconcat $ map toFormat ss
       footer :: TexFormat String
-      footer   = mconcat $ [ TexFormat "\\end{document}"
-                           ]
+      footer   = mconcat [ TexFormat "\\end{document}"
+                         ]
 
 instance Formattable Proof (TextFormat String) where
     toFormat po@(ClassicPrepProof (_, p)) = TextFormat $ case toFormat p of
@@ -94,7 +94,7 @@ instance Formattable Proof (TexFormat String) where
     toFormat po@(ClassicPrepProof (_, p)) = mconcat [ header, toFormat p, footer]
         where
           header = return $ "\\begin{theorem}[" ++ getProofFullName po ++ "]\n\\begin{prooftree}\n"
-          footer = return $ "\n\\end{prooftree}\n\\end{theorem}"
+          footer = return "\n\\end{prooftree}\n\\end{theorem}"
     parseFormat = undefined
 
 getProofFullName :: Proof -> String
@@ -162,7 +162,7 @@ loop env proofs = do
                                            Nothing -> envPutLn ("Theorem " ++ thm ++ " is not found.") >> loop env proofs
                                            Just p -> envPutLn (extractString format p) >> loop env proofs
       Right Info -> infoCommand proofs >> loop env proofs
-      Right (ReadFile path) -> envPutLn ("Read: " ++ path) >> (inputWithFile env) path env (flip loop proofs) >>= loop env
+      Right (ReadFile path) -> envPutLn ("Read: " ++ path) >> inputWithFile env path env (`loop` proofs) >>= loop env
   where
 --    proof :: (Functor m, Monad m) => [(String, InferRule a)] -> a -> m (Maybe (FormulaProofObj a))
     proof calc term = do
@@ -235,7 +235,7 @@ prover mpath = do
       proofs <- runInputTBehaviorWithPrefs haskelineBehavior defaultPrefs haskelineSettings (loop hlineEnv [])
       case mpath of
         Nothing -> return ()
-        Just path -> writeFile path $ toString $ (toFormat (File [Section "main" $ reverse proofs]) :: TexFormat String)
+        Just path -> writeFile path $ toString (toFormat (File [Section "main" $ reverse proofs]) :: TexFormat String)
     where 
       hlineEnv = Environment { putLn = putLn', getLn = getLn', inputWithFile = envWithFile' }
       putLn' = outputStrLn
@@ -247,7 +247,7 @@ prover mpath = do
           Nothing -> getLn' pstr
           Just input -> return input
 --      envWithFile' :: (MonadException m) => FilePath -> Environment (InputT m) -> (Environment (InputT m) -> InputT m a) -> InputT m a
-      envWithFile' path env f = lift $ runInputTBehavior (useFile path) haskelineSettings (f (Environment { putLn = putLn env, getLn = \_ -> liftM (maybe "abort" id) $ getInputLine "", inputWithFile = inputWithFile env }))
+      envWithFile' path env f = lift $ runInputTBehavior (useFile path) haskelineSettings (f Environment { putLn = putLn env, getLn = \_ -> liftM (fromMaybe "abort") $ getInputLine "", inputWithFile = inputWithFile env })
 
 
 haskelineSettings :: (MonadIO m) =>Settings m
