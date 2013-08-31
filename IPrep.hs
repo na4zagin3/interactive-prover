@@ -9,6 +9,7 @@ import Control.Applicative ((*>),(<*))
 import InteractiveProof
 import InteractiveProof.Formula
 import qualified InteractiveProof.Formula.ClassicPrep as FCP
+import qualified InteractiveProof.Lambda.SimplyTyped as LST
 import InteractiveProof.ProofTree
 import Data.Monoid
 import Data.List
@@ -33,10 +34,13 @@ data File = File [Section]
 data Section = Section String [Proof]
 
 data Proof = ClassicPrepProof (String, FormulaProofObj FCP.Term)
+           | SimplyTypedLambdaCalclusTypeTree (String, FormulaProofObj LST.TypingExpr)
 
 data Calculus = ClassicPrep [(String, InferRule FCP.Term)]
+              | SimplyTypedLambdaCalclus [(String, InferRule LST.TypingExpr)]
 
 data Term = ClassicPrepTerm FCP.Term
+          | SimplyTypedLambdaCalclusTerm LST.TypingExpr
 
 data Environment m = Environment { putLn :: String -> m ()
                                  , getLn :: Prompt -> m String
