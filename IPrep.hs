@@ -18,7 +18,6 @@ import Control.Monad.State
 import Control.Lens()
 import System.Console.Haskeline
 import System.Environment
-import System.Exit
 
 
 import Text.Parsec hiding (State)
@@ -42,7 +41,7 @@ data Term = ClassicPrepTerm FCP.Term
 data Environment m = Environment { putLn :: String -> m ()
                                  , getLn :: Prompt -> m String
                                  , inputWithFile :: forall a. FilePath -> Environment m -> (Environment m -> m a) -> m a
-                                 , outputWithFile :: forall a. FilePath -> Environment m -> (Environment m -> m a) -> m a
+--                                 , outputWithFile :: forall a. FilePath -> Environment m -> (Environment m -> m a) -> m a
                                  }
 
 -- wfm :: FilePath -> (StateT [String] m b) -> m b
@@ -50,15 +49,19 @@ data Environment m = Environment { putLn :: String -> m ()
 
 instance Formattable Section (TextFormat String) where
     toFormat (Section name ps) = (TextFormat ("Section " ++ name ++ "\n") `mappend`) $ mconcat $ map (\p-> TextFormat "\n" `mappend` toFormat p) ps
+    parseFormat = undefined
 
 instance Formattable File (TextFormat String) where
     toFormat (File ss) = mconcat $ map toFormat ss
+    parseFormat = undefined
 
 instance Formattable Section (TexFormat String) where
     toFormat (Section name ps) = (TexFormat ("\\section{" ++ name ++ "}\n") `mappend`) $ mconcat $ map (\p-> TexFormat "\n" `mappend` toFormat p) ps
+    parseFormat = undefined
 
 instance Formattable File (TexFormat String) where
     toFormat (File ss) = texOutput ss
+    parseFormat = undefined
 
 texOutput :: [Section] -> TexFormat String
 texOutput ss = (preamble `mappend` contents) `mappend` footer
@@ -81,12 +84,14 @@ texOutput ss = (preamble `mappend` contents) `mappend` footer
 instance Formattable Proof (TextFormat String) where
     toFormat po@(ClassicPrepProof (_, p)) = TextFormat $ case toFormat p of
                                                              TextFormat str -> "thm:" ++ getProofFullName po ++ "\n" ++ str
+    parseFormat = undefined
 
 instance Formattable Proof (TexFormat String) where
     toFormat po@(ClassicPrepProof (_, p)) = mconcat [ header, toFormat p, footer]
         where
           header = return $ "\\begin{theorem}[" ++ getProofFullName po ++ "]\n\\begin{prooftree}\n"
           footer = return $ "\n\\end{prooftree}\n\\end{theorem}"
+    parseFormat = undefined
 
 getProofFullName :: Proof -> String
 getProofFullName p = getCalcName p ++ ":" ++ getProofName p
