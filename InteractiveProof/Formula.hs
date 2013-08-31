@@ -85,7 +85,7 @@ instance Show (ApplicableRule a) where
     show (ApplicableRule (n, d, _)) = paren $ "ApplicableRule " ++ n ++ " " ++ d
 
 --    parseFormat :: Stream b m Char => ParsecT b u m a
-parseStep :: (Ord a, Stream b m Char, Formattable a (TextFormat String), Formula a)=> Sequent a -> [(String, InferRule a)] -> ParsecT b u m (ApplicableRule a)
+parseStep :: (Ord a, Stream b m Char, Formattable a b, Formattable a (TextFormat String), Formula a)=> Sequent a -> [(String, InferRule a)] -> ParsecT b u m (ApplicableRule a)
 parseStep _ ss = do
       rn <- many1 letter <* spaces
       case lookup (toFormat rn) ss of
@@ -96,15 +96,15 @@ parseStep _ ss = do
           return $ ApplicableRule (rn, unwords $ map toFormat vs, r vs)
         Just (FormulaRule r) -> do
           f <- string "(" *> pTerm <* string ")"
-          return $ ApplicableRule (rn, toFormat f, r f)
+          return $ ApplicableRule (rn, paren $ toFormat f, r f)
         Just (FormulaeRule r) -> do
           f <- string "(" *> pTerm <* string ")" <* spaces
           ls <- delimited (string "[" >> spaces) (string "," >> spaces) pTerm (string "]" >> spaces) <* spaces
           rs <- delimited (string "[" >> spaces) (string "," >> spaces) pTerm (string "]" >> spaces)
-          return $ ApplicableRule (rn, unwords [toFormat f, "[", strSeq ls, "]", "[", strSeq rs, "]"], r f (MS.fromList ls, MS.fromList rs))
+          return $ ApplicableRule (rn, unwords [paren $ toFormat f, "[", strSeq ls, "]", "[", strSeq rs, "]"], r f (MS.fromList ls, MS.fromList rs))
     where
       pVars = many1 $  many1 letter <* spaces
-      pTerm = parseFormula
+      pTerm = parseFormat
       strSeq fs = intercalate ", " $ map toFormat fs
 
 delimited :: Stream b m Char => ParsecT b u m c -> ParsecT b u m d -> ParsecT b u m a -> ParsecT b u m e -> ParsecT b u m [a]
