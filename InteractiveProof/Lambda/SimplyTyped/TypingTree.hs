@@ -12,22 +12,24 @@ import InteractiveProof.Type.Simple
 import Data.Monoid
 import Control.Monad
 -- import Control.Arrow
--- import Control.Applicative ((<$>),(*>),(<*),pure)
+import Control.Applicative ((<$>),(*>),(<*),(<*>),pure)
 -- import Control.Applicative ((<*))
 -- import Data.Maybe
 import qualified Data.MultiSet as MS
+import qualified Data.Map as M
 import Text.Parsec
 -- import Text.Parsec.String
 
 data TypingExpr = Env (TypeEnvironment Type)
-                | Expr Term
+                | Expr Term Type
+                deriving (Ord, Eq)
 
 instance Formula TypingExpr where
-    parseFormula = liftM Env parseFormula <|> liftM Expr parseFormula
+    parseFormula = liftM Env parseFormula <|> (Expr <$> (parseFormula <* spaces <* string ":" <* spaces) <*> parseFormula )
 
-instance (Monoid b, Formattable Term b, Formattable (TypeEnvironment Type) b)=> Formattable TypingExpr b where
-    parseFormat = liftM Env parseFormat <|> liftM Expr parseFormat
-    toFormat (Expr e) = toFormat e
+instance (Monoid b, Formattable Term b, Formattable Type b, Formattable String b,Formattable (TypeEnvironment Type) b)=> Formattable TypingExpr b where
+    parseFormat = liftM Env parseFormat <|> (Expr <$> (parseFormula <* spaces <* string ":" <* spaces) <*> parseFormula )
+    toFormat (Expr e t) = toFormat e `mappend` toFormat ":" `mappend` toFormat t
     toFormat (Env env) = toFormat env
 
 {-
@@ -86,5 +88,19 @@ steps = [ ("I", StructureRule iden)
 
 -}
 
-typingSteps :: [(String, InferRule Term)]
-typingSteps = [ ("I", StructureRule iden) ]
+tmDAbs (Env (TypeEnvironment te)) (Expr (TmAbs v vt tm) t) | M.notMember v te = Just [(Env $ TypeEnvironment $ M.insert v t te, (Expr tm t))]
+tmDAbs _ _ = Nothing
+
+-- app (TypeEnvironment te) (Expr (TmApp tm1 tm2) t) = Just [(te, (Expr tm1 ()]
+-- app _ _ = Nothing
+
+termDestruction :: (TypingExpr -> TypingExpr -> Maybe [(TypingExpr, TypingExpr)]) -> Sequent TypingExpr -> Maybe [Sequent TypingExpr]
+termDestruction f (Sequent (l,r)) | MS.null l = termDestruction f $ Sequent (MS.insert (Env (TypeEnvironment M.empty)) l,r)
+                                  | otherwise = fmap (map (\(te,t)->Sequent (MS.singleton te, MS.singleton t))) $ f l' r'
+                                  where
+                                    l' = head $ MS.toList l
+                                    r' = head $ MS.toList r
+
+
+typingSteps :: [(String, InferRule TypingExpr)]
+typingSteps = [ ("I", StructureRule iden), ("ABS", StructureRule $ termDestruction tmDAbs) ]
