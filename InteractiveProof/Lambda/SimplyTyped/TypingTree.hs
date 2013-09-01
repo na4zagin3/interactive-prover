@@ -88,8 +88,25 @@ steps = [ ("I", StructureRule iden)
 
 -}
 
-tmDAbs (Env (TypeEnvironment te)) (Expr (TmAbs v vt tm) t) | M.notMember v te = Just [(Env $ TypeEnvironment $ M.insert v t te, (Expr tm t))]
+tmDTrue, tmDFalse, tmDVar, tmDAbs, tmDIf :: TypingExpr -> TypingExpr -> Maybe [(TypingExpr, TypingExpr)]
+tmDTrue _ (Expr TmTrue t) | t == Prim "Bool" = Just []
+tmDTrue _ _ = Nothing
+
+tmDFalse _ (Expr TmFalse t) | t == Prim "Bool" = Just []
+tmDFalse _ _ = Nothing
+
+tmDVar (Env (TypeEnvironment te)) (Expr (TmVar v) t) | M.lookup v te == Just t = Just []
+tmDVar _ _ = Nothing
+
+tmDAbs (Env (TypeEnvironment te)) (Expr (TmAbs v vt tm) (Func vt' t)) | M.notMember v te  && vt == vt' = Just [(Env $ TypeEnvironment $ M.insert v vt te, (Expr tm t))]
 tmDAbs _ _ = Nothing
+
+tmDIf env (Expr (TmIf tc tt tf) t) = Just [(env, (Expr tc (Prim "Bool"))), (env, (Expr tt t)), (env, (Expr tf t))]
+tmDIf _ _ = Nothing
+
+tmDApp :: Type -> TypingExpr -> TypingExpr -> Maybe [(TypingExpr, TypingExpr)]
+tmDApp t' env (Expr (TmApp tm1 tm2) t) = Just [(env, Expr tm1 (Func t' t)), (env, (Expr tm2 t'))]
+tmDApp _ _ _ = Nothing
 
 -- app (TypeEnvironment te) (Expr (TmApp tm1 tm2) t) = Just [(te, (Expr tm1 ()]
 -- app _ _ = Nothing
@@ -103,4 +120,10 @@ termDestruction f (Sequent (l,r)) | MS.null l = termDestruction f $ Sequent (MS.
 
 
 typingSteps :: [(String, InferRule TypingExpr)]
-typingSteps = [ ("I", StructureRule iden), ("ABS", StructureRule $ termDestruction tmDAbs) ]
+typingSteps = [ ("VAR", StructureRule $ termDestruction tmDVar)
+              , ("TRUE", StructureRule $ termDestruction tmDTrue)
+              , ("FALSE", StructureRule $ termDestruction tmDFalse)
+              , ("ABS", StructureRule $ termDestruction tmDAbs)
+              , ("IF", StructureRule $ termDestruction tmDIf)
+              , ("APP", FreeFormatRule ("(type)", (string "(" *> parseType textSymbol <* string ")") >>= (\x -> return (paren $ show x, termDestruction $ tmDApp x))))
+              ]
