@@ -218,7 +218,7 @@ loop env proofs = do
                       names = map (("thm:"++) . getProofFullName) proofs'
     extractString :: (Formattable a (TextFormat String), Formattable a (TexFormat String)) => String -> a -> String
     extractString format p = case format of
-                          "text" -> toString (toFormat p :: TexFormat String)
+                          "text" -> toString (toFormat p :: TextFormat String)
                           "tex" -> toString (toFormat p :: TexFormat String)
                           _ -> "format not found."
     envPutLn = putLn env
