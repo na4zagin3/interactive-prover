@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, Rank2Types, ImpredicativeTypes,
   FlexibleContexts, ScopedTypeVariables, FlexibleInstances #-}
 
-module IPrep where
+module Main where
 -- import Control.Arrow
 -- import Control.Monad
 --import Control.Applicative ((<$>),(*>),(<*),pure)
