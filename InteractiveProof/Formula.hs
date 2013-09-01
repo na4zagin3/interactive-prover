@@ -62,7 +62,7 @@ data InferRule a = StructureRule (Sequent a -> Maybe [Sequent a])
                  | VariableRule ([Variable] -> Sequent a -> Maybe [Sequent a])
                  | FormulaRule (a -> Sequent a -> Maybe [Sequent a])
                  | FormulaeRule (a -> (MultiSet a, MultiSet a) -> Sequent a -> Maybe [Sequent a])
-                 | FreeFormatRule (String, (Stream b m Char=> ParsecT b u m (String, Sequent a -> Maybe [Sequent a])))
+                 | FreeFormatRule (String, Stream b m Char=> ParsecT b u m (String, Sequent a -> Maybe [Sequent a]))
 
 formatUsageStr :: InferRule a -> String
 formatUsageStr (StructureRule _) = ""
@@ -106,20 +106,20 @@ parseStep _ ss = do
           return $ ApplicableRule (rn, toString $ mconcat $ intersperse " " $ map toString vs, r vs)
         Just (FormulaRule r) -> do
           f <- string "(" *> pTerm <* string ")"
-          return $ ApplicableRule (rn, toString' $ parenM $ (toFormat f :: TextFormat String) :: String, r f)
+          return $ ApplicableRule (rn, toString' $ parenM (toFormat f :: TextFormat String), r f)
         Just (FormulaeRule r) -> do
           f <- string "(" *> pTerm <* string ")" <* spaces
           ls <- delimited (string "[" >> spaces) (string "," >> spaces) pTerm (string "]" >> spaces) <* spaces
           rs <- delimited (string "[" >> spaces) (string "," >> spaces) pTerm (string "]" >> spaces)
-          return $ ApplicableRule (rn, toString' . mconcat $ [parenM $ (toFormat f :: TextFormat String), return " [", strSeq ls, return "] [", strSeq rs, return "]"], r f (MS.fromList ls, MS.fromList rs))
+          return $ ApplicableRule (rn, toString' . mconcat $ [parenM (toFormat f :: TextFormat String), return " [", strSeq ls, return "] [", strSeq rs, return "]"], r f (MS.fromList ls, MS.fromList rs))
         Just (FreeFormatRule (_, mr)) -> do
           r <- mr
           return $ ApplicableRule (rn, fst r, snd r)
     where
       pVars = many1 $  many1 letter <* spaces
       pTerm = parseFormat
-      strSeq fs = mconcat $ (intersperse (return ", " :: TextFormat String)) $ map toFormat fs
-      toString' :: (IsString String)=>(TextFormat String) -> String
+      strSeq fs = mconcat $ intersperse (return ", " :: TextFormat String) $ map toFormat fs
+      toString' :: (IsString String)=> TextFormat String -> String
       toString' = toString
 
 delimited :: Stream b m Char => ParsecT b u m c -> ParsecT b u m d -> ParsecT b u m a -> ParsecT b u m e -> ParsecT b u m [a]
