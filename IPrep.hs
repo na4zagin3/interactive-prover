@@ -111,7 +111,7 @@ getProofName (ClassicPrepProof (thm, _)) = thm
 --    parseFormat = parseFinchTree
 
 calculi :: [(String, Calculus)]
-calculi = [("cp", ClassicPrep FCP.steps)]
+calculi = [("cp", ClassicPrep FCP.steps),("stltt", SimplyTypedLambdaCalclus LST.typingSteps)]
 
 data Command a b c = Abort
                    | Help
@@ -184,10 +184,11 @@ loop env proofs = do
       thmName <- many1 letter <* spaces <* string ":" <* spaces
       case lookup calcName calculi of
         Nothing -> unexpected $ "calculus name: " ++ calcName
-        Just (ClassicPrep steps) -> parseCp steps thmName
-    parseCp calc thm = do
+        Just calc@(ClassicPrep _) -> parseCp ClassicPrepTerm calc thmName
+        Just calc@(SimplyTypedLambdaCalclus _) -> parseCp SimplyTypedLambdaCalclusTerm calc thmName
+    parseCp f calc thm = do
       term <- parseFormula
-      return (ClassicPrep calc, thm, ClassicPrepTerm term)
+      return (calc, thm, f term)
     parseExtract :: (Stream s m Char)=> ParsecT s u m (Command a String String)
     parseExtract = do
       string ":"
@@ -202,6 +203,7 @@ loop env proofs = do
       return $ ReadFile path
     printHelp = envPutLn "help, exit, theorem:<type> <name>:<theorem>, extract:<type> <name>, info, source <file>"
     proofCommandAndLoop (ClassicPrep calc, thm, ClassicPrepTerm term) = proof calc term >>= (loop env . maybe proofs (\p -> ClassicPrepProof (thm, p) : proofs))
+    proofCommandAndLoop (SimplyTypedLambdaCalclus calc, thm, SimplyTypedLambdaCalclusTerm term) = proof calc term >>= (loop env . maybe proofs (\p -> SimplyTypedLambdaCalclusTypeTree (thm, p) : proofs))
 --    infoCommand :: [Proof] -> m ()
     infoCommand proofs' = forM_ names envPutLn
                     where
