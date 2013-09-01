@@ -103,7 +103,7 @@ textProofTree name p = mconcat [ header, toFormat p, footer]
 
 texProofTree name p = mconcat [ header, toFormat p, footer]
         where
-          header = return $ "\\begin{theorem}[" ++ name ++ "]\n\\begin{prooftree}\n"
+          header = return $ "\\begin{theorem}[" ++ name ++ "]\\hfill\n\\begin{prooftree}\n"
           footer = return "\n\\end{prooftree}\n\\end{theorem}"
 
 getProofFullName :: Proof -> String
