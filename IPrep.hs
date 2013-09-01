@@ -71,7 +71,7 @@ texOutput :: [Section] -> TexFormat String
 texOutput ss = (preamble `mappend` contents) `mappend` footer
     where
       preamble :: TexFormat String
-      preamble = mconcat [ TexFormat "\\documentclass[a4paper]{article}\n"
+      preamble = mconcat [ TexFormat "\\documentclass[a4paper,landscape]{article}\n"
                          , TexFormat "\\usepackage{amsmath,amsthm}\n"
                          , TexFormat "\\usepackage{etex}\n"
                          , TexFormat "\\usepackage{braket}\n"
