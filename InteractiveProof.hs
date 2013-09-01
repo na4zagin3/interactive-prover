@@ -10,6 +10,7 @@ import Data.Functor.Identity
 import Text.Parsec
 import Text.Parsec.String
 import Control.Lens hiding (uncons)
+import Control.Applicative ((<*))
 
 type Variable = String
 
@@ -42,14 +43,17 @@ unfoldR _ x [] = x
 unfoldR c x [y] = c x y
 unfoldR c x (y:ys) = c y (unfoldR c x ys)
 
+parseComment :: (Stream b m Char)=> ParsecT b u m String
+parseComment = (string "# " >> many anyChar) <|> return ""
+
 parseLineM :: (Functor m, Monad m, Stream b Identity Char)=>(String -> m ()) -> m String -> String -> (String -> b) -> Parsec b () a -> m a
 parseLineM putLn getLn n trans p = do
-    let f = fmap (parse p n . trans) getLn >>= either (\x -> putLn (show x) >> f) return
+    let f = fmap (parse (p <* parseComment) n . trans) getLn >>= either (\x -> putLn (show x) >> f) return
     f
 
 parseLine :: (Functor m, Monad m)=>(String -> m ()) -> m String -> String -> Parser a -> m a
 parseLine putLn getLn n p = do
-    let f = fmap (parse p n) getLn >>= either (\x -> putLn (show x) >> f) return
+    let f = fmap (parse (p <* parseComment) n) getLn >>= either (\x -> putLn (show x) >> f) return
     f
 
 class Format a b where
