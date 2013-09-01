@@ -74,6 +74,7 @@ texOutput ss = (preamble `mappend` contents) `mappend` footer
       preamble = mconcat [ TexFormat "\\documentclass[a4paper]{article}\n"
                          , TexFormat "\\usepackage{amsmath,amsthm}\n"
                          , TexFormat "\\usepackage{etex}\n"
+                         , TexFormat "\\usepackage{braket}\n"
                          , TexFormat "\\usepackage{bussproofs}\n"
                          , TexFormat "\\theoremstyle{definition}\n"
                          , TexFormat "\\newtheorem{theorem}{Theorem}\n"

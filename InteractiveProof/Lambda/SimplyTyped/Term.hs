@@ -28,7 +28,7 @@ data Term = TmBot
 instance Formula Term where
     parseFormula = parseTerm textSymbol T.textSymbol
 
-type TermSymbols = (String, String, String, String)
+type TermSymbols = (String, String, String, String, String, String -> String, String -> String)
 
 instance Formattable Term (TextFormat String) where
     toFormat = showTerm textSymbol
@@ -39,10 +39,10 @@ instance Formattable Term (TexFormat String) where
     parseFormat = parseTerm texSymbol T.texSymbol
 
 textSymbol :: TermSymbols
-textSymbol = ("\\", "->", "True", "False")
+textSymbol = ("^", ".", "True", "False", " ", id, id)
 
 texSymbol :: TermSymbols
-texSymbol = ("\\lambda", ".", "True", "False")
+texSymbol = ("\\lambda ", ".", "True", "False", "\\ ", \x -> "\\mathop{\\mathrm{" ++ x ++ "}}", \x -> "\\mathit{" ++ x ++ "}")
 
 parenIfNot :: Bool -> String -> String
 parenIfNot b = if b then id else paren
@@ -50,19 +50,19 @@ parenIfNot b = if b then id else paren
 showTerm :: (Formattable Type (m String), Monad m, Monoid (m String))=>TermSymbols -> Term -> m String
 showTerm ss TmTrue = return $ ss^._3
 showTerm ss TmFalse = return $ ss^._4
-showTerm _  (TmVar v) = return v
+showTerm ss (TmVar v) = return (ss^._7 $ v)
 showTerm ss (TmApp tm1 tm2) = mconcat [ liftM (parenIfNot (tm1 < TmIf TmBot TmBot TmBot)) $ showTerm ss tm1
                                       , return " "
                                       , liftM (parenIfNot (tm2 < TmApp TmBot TmBot)) $ showTerm ss tm2]
-showTerm ss (TmIf tm1 tm2 tm3) = mconcat [ return "if "
+showTerm ss (TmIf tm1 tm2 tm3) = mconcat [ return $ (ss^._6 $ "if")++ " "
                                          , showTerm ss tm1
-                                         , return " then "
+                                         , return $ " " ++ (ss^._6 $ "then") ++ " "
                                          , showTerm ss tm2
-                                         , return " else "
+                                         , return $ " " ++ (ss^._6 $ "else")
                                          , showTerm ss tm3]
 showTerm ss (TmAbs v ty tm) = mconcat [ return $ ss^._1 ++ v ++ ":"
                                       , toFormat ty
-                                      , return $ ss^._2 ++ " "
+                                      , return $ ss^._2 ++ ss^._5
                                       , showTerm ss tm]
 
 parseTerm :: (Stream b m Char) => TermSymbols -> T.TypeSymbols -> ParsecT b u m  Term

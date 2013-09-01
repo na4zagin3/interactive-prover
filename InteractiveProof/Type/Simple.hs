@@ -40,7 +40,7 @@ textSymbol :: TypeSymbols
 textSymbol = ("", "", "", "", "->")
 
 texSymbol :: TypeSymbols
-texSymbol = ("{", "}", "\\textbf", "\\textit", "\\to")
+texSymbol = ("{", "}", "\\textbf", "\\textit", "\\to ")
 
 showType :: TypeSymbols -> Type -> String
 showType ss (Prim v) = ss^._3 ++ ss^._1 ++ v ++ ss^._2

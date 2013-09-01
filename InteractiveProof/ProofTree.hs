@@ -77,7 +77,7 @@ bussproofAnnot n (Node (t,l) ts) = mconcat [children, indent n, insn]
       nchild = length ts
       children = if nchild == 0 then indent (n+1) `mappend` return "\\AxiomC{}\n" else mconcat $ map (\x -> bussproofAnnot (n+1) x `mappend` return "\n") ts
       indent i = return $ concat $ replicate i "  "
-      insn = mconcat [return "\\RightLabel{", toFormat l, return "}\\", return (["UnaryInfC", "UnaryInfC", "BinaryInfC", "TriaryInfC"] !! nchild), return "{", toFormat t, return "}"]
+      insn = mconcat [return "\\RightLabel{", toFormat l, return "}\\", return (["UnaryInfC", "UnaryInfC", "BinaryInfC", "TrinaryInfC"] !! nchild), return "{", toFormat t, return "}"]
 
 unfoldFitchTree :: Ord t => (t, a) -> [(t, a)] -> Tree a
 unfoldFitchTree (_, t) [] = Node t []
