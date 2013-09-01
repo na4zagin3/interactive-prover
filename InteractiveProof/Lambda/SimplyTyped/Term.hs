@@ -68,13 +68,13 @@ showTerm ss (TmAbs v ty tm) = mconcat [ return $ ss^._1 ++ v ++ ":"
 parseTerm :: (Stream b m Char) => TermSymbols -> T.TypeSymbols -> ParsecT b u m  Term
 parseTerm ss tss = pTerm
     where
-      pVar = liftM TmVar $ many1 letter
+      pVar = notFollowedBy ((string "if" <|> string "then" <|> string "else") >> notFollowedBy alphaNum) >> liftM TmVar (many1 letter)
       pTrue = try (string (ss^._3) >> return TmTrue)
       pFalse = try (string (ss^._4) >> return TmFalse)
       pAtom = (string "(" >> pTerm <* string ")") <|> pTrue <|> pFalse <|> pVar
       pFactor = do
-        t1 <- pAtom
-        t2 <- many $ spaces *> pAtom
+        t1 <- pAtom <* spaces
+        t2 <- many $ pAtom <* spaces
         return $ unfoldL TmApp t1 t2
       pIf = do
         string "if" <* spaces
