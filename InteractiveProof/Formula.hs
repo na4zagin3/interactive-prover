@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, TypeSynonymInstances, Rank2Types, ImpredicativeTypes #-}
 module InteractiveProof.Formula ( Formula, parseFormula
                                 , Sequent(..), InferRule(..), ApplicableRule(..), singleton
                                 , parseStep, delimited
@@ -62,6 +62,7 @@ data InferRule a = StructureRule (Sequent a -> Maybe [Sequent a])
                  | VariableRule ([Variable] -> Sequent a -> Maybe [Sequent a])
                  | FormulaRule (a -> Sequent a -> Maybe [Sequent a])
                  | FormulaeRule (a -> (MultiSet a, MultiSet a) -> Sequent a -> Maybe [Sequent a])
+                 | FreeFormatRule (String, (Stream b m Char=> ParsecT b u m (String, Sequent a -> Maybe [Sequent a])))
 
 instance (Formattable a (TextFormat String))=> Formattable (ApplicableRule a) (TextFormat String) where
     toFormat (ApplicableRule(r, "", _)) = TextFormat r
@@ -104,6 +105,9 @@ parseStep _ ss = do
           ls <- delimited (string "[" >> spaces) (string "," >> spaces) pTerm (string "]" >> spaces) <* spaces
           rs <- delimited (string "[" >> spaces) (string "," >> spaces) pTerm (string "]" >> spaces)
           return $ ApplicableRule (rn, toString' . mconcat $ [parenM $ (toFormat f :: TextFormat String), return " [", strSeq ls, return "] [", strSeq rs, return "]"], r f (MS.fromList ls, MS.fromList rs))
+        Just (FreeFormatRule (_, mr)) -> do
+          r <- mr
+          return $ ApplicableRule (rn, fst r, snd r)
     where
       pVars = many1 $  many1 letter <* spaces
       pTerm = parseFormat

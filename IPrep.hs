@@ -146,6 +146,7 @@ pTree steps env = fmap (liftM (liftM AnnotatedProofTree)) $ makeTree envPutLn as
     usageStr (n, VariableRule _) = n ++ " vs.."
     usageStr (n, FormulaRule _) = n ++ "(t)"
     usageStr (n, FormulaeRule _) = n ++ "(t)[l..][r..]"
+    usageStr (n, FreeFormatRule (fmt,_)) = n ++ fmt
     envPutLn = putLn env
     envGetLn = getLn env
 
