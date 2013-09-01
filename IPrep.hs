@@ -111,7 +111,7 @@ getProofFullName p = getCalcName p ++ ":" ++ getProofName p
 
 getCalcName :: Proof -> String
 getCalcName (ClassicPrepProof _) = "cp"
-getCalcName (SimplyTypedLambdaCalclusTypeTree _) = "tsltt"
+getCalcName (SimplyTypedLambdaCalclusTypeTree _) = "stltt"
 
 getProofName :: Proof -> String
 getProofName (ClassicPrepProof (thm, _)) = thm
