@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, TypeSynonymInstances, Rank2Types, ImpredicativeTypes #-}
 module InteractiveProof.Formula ( Formula, parseFormula
-                                , Sequent(..), InferRule(..), ApplicableRule(..), singleton
+                                , Sequent(..), InferRule(..), ApplicableRule(..), singleton, formatUsageStr
                                 , parseStep, delimited
                                 , iden
                                 , contrL, contrR, weakL, weakR, moveLR, moveRL
@@ -63,6 +63,13 @@ data InferRule a = StructureRule (Sequent a -> Maybe [Sequent a])
                  | FormulaRule (a -> Sequent a -> Maybe [Sequent a])
                  | FormulaeRule (a -> (MultiSet a, MultiSet a) -> Sequent a -> Maybe [Sequent a])
                  | FreeFormatRule (String, (Stream b m Char=> ParsecT b u m (String, Sequent a -> Maybe [Sequent a])))
+
+formatUsageStr :: InferRule a -> String
+formatUsageStr (StructureRule _) = ""
+formatUsageStr (VariableRule _) = " vs.."
+formatUsageStr (FormulaRule _) = "(t)"
+formatUsageStr (FormulaeRule _) = "(t)[l..][r..]"
+formatUsageStr (FreeFormatRule (fmt,_)) = fmt
 
 instance (Formattable a (TextFormat String))=> Formattable (ApplicableRule a) (TextFormat String) where
     toFormat (ApplicableRule(r, "", _)) = TextFormat r
