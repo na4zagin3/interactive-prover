@@ -119,7 +119,7 @@ makeTree' putLn ask rules n c = do
     f rule = do
       let ps = applyRule rule c
       let goals = length ps
-      pps <- allJustM $ map (\(i,c')-> makeTree' putLn ask rules (goals - i) c') $ zip [1..] ps
+      pps <- allJustM $ map (\(i,c')-> makeTree' putLn ask rules (n + goals - i) c') $ zip [1..] ps
       maybe (putLn "failed." >> makeTree' putLn ask rules n c) (return . Just . Node (c, rule)) pps
 
 makeTree :: (Monad m, Functor m, Statement a, Rule a b)=> (String -> m ()) -> (Int -> a -> [b] -> m (Maybe b)) -> (a -> [b]) -> a -> m (Maybe (ProofTree (a, b)))
