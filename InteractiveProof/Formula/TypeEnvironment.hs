@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FlexibleContexts,
   GADTs #-}
-module InteractiveProof.Formula.TypeEnvironment (TypeEnvironment) where
+module InteractiveProof.Formula.TypeEnvironment (TypeEnvironment(..)) where
 
 import Data.Map(Map)
 import qualified Data.Map as M
@@ -9,6 +9,7 @@ import InteractiveProof.Formula
 import InteractiveProof.Type
 import Text.Parsec
 import Data.Monoid
+import Data.List
 import Control.Monad()
 -- import Control.Arrow
 -- import Control.Applicative ((<$>),(*>),(<*),pure)
@@ -38,7 +39,7 @@ instance (Type t, Formattable t (TexFormat String))=>Formattable (TypeEnvironmen
 showTyEnv :: (Monoid (m String), Monad m, Formattable t (m String), Type t)=>TypeSymbols -> TypeEnvironment t -> m String
 showTyEnv ss (TypeEnvironment vts) = mconcat [return (ss^._3), return (ss^._1), contents, return (ss^._2)]
     where
-      contents = mconcat $ map (\(v,t) -> return v `mappend` toFormat t) $ M.toList vts
+      contents = mconcat $ intersperse (return (ss^._5 ++ " ")) $ map (\(v,t) -> return v `mappend` return (ss^._4) `mappend` toFormat t) $ M.toList vts
 
 textSymbol :: TypeSymbols
 textSymbol = ("{", "}", "", ":", ",")
