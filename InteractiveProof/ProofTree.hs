@@ -37,7 +37,7 @@ instance (Statement a, Formattable a (TexFormat String)) => Formattable (ProofTr
     parseFormat = undefined
 
 instance (Formattable a (TextFormat String), Formattable b (TextFormat String)) => Formattable (AnnotatedProofTree (a,b)) (TextFormat String) where
-    toFormat (AnnotatedProofTree (ProofTree t)) = fitchStyle 1 (fmap (\(a,b)-> toString $ mconcat [parenM $ toFormat a :: TextFormat String, return "  ", toFormat b]) t :: Tree String)
+    toFormat (AnnotatedProofTree (ProofTree t)) = fitchStyle 1 (fmap (\(a,b)-> toString $ mconcat [parenM $ toFormat b :: TextFormat String, return "\t", toFormat a]) t :: Tree String)
     parseFormat = undefined
 
 instance (Formattable a (TexFormat String), Formattable b (TexFormat String)) => Formattable (AnnotatedProofTree (a,b)) (TexFormat String) where
