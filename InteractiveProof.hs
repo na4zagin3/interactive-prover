@@ -69,15 +69,20 @@ instance Formattable String (TextFormat String) where
     fromFormat (TextFormat str) = Just str
     parseFormat = many anyChar
 
+instance Formattable String (TexFormat String) where
+    toFormat = TexFormat . id
+    fromFormat (TexFormat str) = Just str
+    parseFormat = many anyChar
+
 instance Formattable (TexFormat String) (TextFormat String) where
     toFormat (TexFormat str) = TextFormat str
     fromFormat (TextFormat str) = Just $ TexFormat str
     parseFormat = undefined
 
 newtype TexFormat a = TexFormat a
---    deriving (Typeable)
+   deriving (Show)
 newtype TextFormat a = TextFormat a
---    deriving (Typeable)
+   deriving (Show)
 
 instance (Monoid a) => Monoid (TexFormat a) where
   mempty = TexFormat mempty
