@@ -86,25 +86,35 @@ texOutput ss = (preamble `mappend` contents) `mappend` footer
                          ]
 
 instance Formattable Proof (TextFormat String) where
-    toFormat po@(ClassicPrepProof (_, p)) = TextFormat $ case toFormat p of
-                                                             TextFormat str -> "thm:" ++ getProofFullName po ++ "\n" ++ str
+    toFormat po@(ClassicPrepProof (_, p)) = textProofTree (getProofFullName po) p
+    toFormat po@(SimplyTypedLambdaCalclusTypeTree (_, p)) = textProofTree (getProofFullName po) p
     parseFormat = undefined
 
 instance Formattable Proof (TexFormat String) where
-    toFormat po@(ClassicPrepProof (_, p)) = mconcat [ header, toFormat p, footer]
-        where
-          header = return $ "\\begin{theorem}[" ++ getProofFullName po ++ "]\n\\begin{prooftree}\n"
-          footer = return "\n\\end{prooftree}\n\\end{theorem}"
+    toFormat po@(ClassicPrepProof (_, p)) = texProofTree (getProofFullName po) p
+    toFormat po@(SimplyTypedLambdaCalclusTypeTree (_, p)) = texProofTree (getProofFullName po) p
     parseFormat = undefined
+
+textProofTree name p = mconcat [ header, toFormat p, footer]
+        where
+          header = return $ "thm:" ++ name ++ "\n"
+          footer = return "\n\\end{prooftree}\n\\end{theorem}"
+
+texProofTree name p = mconcat [ header, toFormat p, footer]
+        where
+          header = return $ "\\begin{theorem}[" ++ name ++ "]\n\\begin{prooftree}\n"
+          footer = return "\n\\end{prooftree}\n\\end{theorem}"
 
 getProofFullName :: Proof -> String
 getProofFullName p = getCalcName p ++ ":" ++ getProofName p
 
 getCalcName :: Proof -> String
 getCalcName (ClassicPrepProof _) = "cp"
+getCalcName (SimplyTypedLambdaCalclusTypeTree _) = "tsltt"
 
 getProofName :: Proof -> String
 getProofName (ClassicPrepProof (thm, _)) = thm
+getProofName (SimplyTypedLambdaCalclusTypeTree (thm, _)) = thm
 -- instance Formattable Proof (TexFormat String) where
 --     toFormat (ClassicPrepProof thm p) = TexFormat $ case toFormat p of
 --                                                       TexFormat str -> "thm:cp:" ++ thm ++ "\n" ++ str
