@@ -1,0 +1,36 @@
+thm cp:refl:A->A
+  IR (A->A)
+  I
+qed
+
+thm cp:peirce:((P->Q)->P)->P
+  IR (((P->Q)->P)->P)
+  CR (P)
+  IL ((P->Q)->P) [] [P] # splits 2 subgoals
+    IR (P->Q)
+	WR (Q)
+	I
+  I
+qed
+
+thm stltt:idA:(^x:A.x):A->A
+  ABS
+  VAR
+qed
+
+thm stltt:idAComplex: (if True then (^x:A->A. x) (^y:A. y) else (^x:A.x)):A->A
+  IF
+    TRUE
+    APP(A->A)
+	  ABS
+	    VAR
+	  ABS
+	    VAR
+    ABS
+	  VAR
+qed
+
+extract:tex cp:refl
+extract:tex cp:peirce
+extract:text stltt:idAComplex
+
