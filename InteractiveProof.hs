@@ -46,6 +46,9 @@ unfoldR c x (y:ys) = c y (unfoldR c x ys)
 parseComment :: (Stream b m Char)=> ParsecT b u m String
 parseComment = (string "# " >> many anyChar) <|> return ""
 
+parseIdChar :: (Stream b m Char)=> ParsecT b u m Char
+parseIdChar = alphaNum <|> oneOf "_"
+
 parseLineM :: (Functor m, Monad m, Stream b Identity Char)=>(String -> m ()) -> m String -> String -> (String -> b) -> Parsec b () a -> m a
 parseLineM putLn getLn n trans p = do
     let f = fmap (parse (p <* parseComment) n . trans) getLn >>= either (\x -> putLn (show x) >> f) return
