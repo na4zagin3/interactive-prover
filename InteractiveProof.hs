@@ -77,9 +77,18 @@ instance Formattable String (TextFormat String) where
     parseFormat = many anyChar
 
 instance Formattable String (TexFormat String) where
-    toFormat = TexFormat . id
-    fromFormat (TexFormat str) = Just str
-    parseFormat = many anyChar
+    toFormat = TexFormat . f
+      where
+        f [] = []
+        f ('\\':xs) = "\\textbackslash{}" ++ f xs
+        f ('{':xs) = "\\{" ++ f xs
+        f ('}':xs) = "\\}" ++ f xs
+        f ('%':xs) = "\\%" ++ f xs
+        f ('$':xs) = "\\$" ++ f xs
+        f ('&':xs) = "\\&" ++ f xs
+        f ('#':xs) = "\\#" ++ f xs
+        f (x:xs) = x : f xs
+    parseFormat = many $ (string "\\textbackslash{}" >> return '\\') <|> (string "\\" >> anyChar) <|> anyChar
 
 instance Formattable (TexFormat String) (TextFormat String) where
     toFormat (TexFormat str) = TextFormat str

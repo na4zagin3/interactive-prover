@@ -73,12 +73,12 @@ formatUsageStr (FreeFormatRule (fmt,_)) = fmt
 
 instance (Formattable a (TextFormat String))=> Formattable (ApplicableRule a) (TextFormat String) where
     toFormat (ApplicableRule(r, "", _)) = TextFormat r
-    toFormat (ApplicableRule(r, arg, _)) = TextFormat $ r ++ " " ++ arg
+    toFormat (ApplicableRule(r, arg, _)) = mconcat [ toFormat r, return " ", toFormat arg]
     parseFormat = undefined
 
 instance (Formattable a (TexFormat String))=> Formattable (ApplicableRule a) (TexFormat String) where
-    toFormat (ApplicableRule(r, "", _)) = TexFormat $ "\\texttt{" ++ r ++ "}"
-    toFormat (ApplicableRule(r, arg, _)) = TexFormat $ "\\texttt{" ++ r ++ " " ++ arg ++ "}"
+    toFormat (ApplicableRule(r, "", _)) = return $ "\\texttt{" ++ r ++ "}"
+    toFormat (ApplicableRule(r, arg, _)) = mconcat [ TexFormat "\\texttt{", toFormat r, TexFormat " ", toFormat arg, TexFormat "}"]
     parseFormat = undefined
 
 instance (Formula a, Formattable a (TextFormat String), Ord a)=> Formattable (Sequent a, ApplicableRule a) (TextFormat String) where
