@@ -209,7 +209,7 @@ loop env proofs = do
     parseReadFile = do
       path <- spaces *> stringLiteral <|> many1 (noneOf " \t\n\"")
       return $ ReadFile path
-    printHelp = envPutLn "help, exit, theorem:<type> <name>:<theorem>, extract:<type> <name>, info, source <file>"
+    printHelp = envPutLn "help, exit, theorem <type>:<name>:<theorem>, extract:<type> <name>, info, source <file>"
     proofCommandAndLoop (ClassicPrep calc, thm, ClassicPrepTerm term) = proof calc term >>= (loop env . maybe proofs (\p -> ClassicPrepProof (thm, p) : proofs))
     proofCommandAndLoop (SimplyTypedLambdaCalclus calc, thm, SimplyTypedLambdaCalclusTerm term) = proof calc term >>= (loop env . maybe proofs (\p -> SimplyTypedLambdaCalclusTypeTree (thm, p) : proofs))
 --    infoCommand :: [Proof] -> m ()
