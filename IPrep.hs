@@ -72,6 +72,7 @@ texOutput ss = (preamble `mappend` contents) `mappend` footer
     where
       preamble :: TexFormat String
       preamble = mconcat [ TexFormat "\\documentclass[a4paper,landscape]{article}\n"
+                         , TexFormat "\\usepackage{pdflscape}\n"
                          , TexFormat "\\usepackage{amsmath,amsthm}\n"
                          , TexFormat "\\usepackage{etex}\n"
                          , TexFormat "\\usepackage{braket}\n"
@@ -79,11 +80,13 @@ texOutput ss = (preamble `mappend` contents) `mappend` footer
                          , TexFormat "\\theoremstyle{definition}\n"
                          , TexFormat "\\newtheorem{theorem}{Theorem}\n"
                          , TexFormat "\\begin{document}\n"
+                         , TexFormat "\\begin{landscape}\n"
                          ]
       contents :: TexFormat String
       contents = mconcat $ map toFormat ss
       footer :: TexFormat String
-      footer   = mconcat [ TexFormat "\\end{document}"
+      footer   = mconcat [ TexFormat "\\end{landscape}\n"
+                         , TexFormat "\\end{document}"
                          ]
 
 instance Formattable Proof (TextFormat String) where
