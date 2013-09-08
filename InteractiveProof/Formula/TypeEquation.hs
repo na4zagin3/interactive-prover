@@ -48,11 +48,11 @@ parseEqn ss = pType
         string $ ss^._3
         string $ ss^._1
         vh <- h
-        v <- many1 letter
+        v <- many1 parseIdChar
         string $ ss^._2
         return $ c (vh:v)
       pType = do
-        v <- pVar id letter <* spaces
+        v <- pVar id parseIdChar <* spaces
         string ":" <* spaces
         t <- parseType
         return $ Equation (v, t)

@@ -67,10 +67,10 @@ instance Show Context where
 parseTerm :: Stream b m Char => ParsecT b u m Term
 parseTerm = pTerm
     where
-      pVar = liftM Var $ many1 letter
+      pVar = liftM Var $ many1 parseIdChar
       pLambda = do
         (string "^" <|> string "λ") <* spaces
-        v <- many1 letter <* spaces
+        v <- many1 parseIdChar <* spaces
         string "." <* spaces
         t <- pTerm
         return $ Lam v t
@@ -87,10 +87,10 @@ parseContext :: Stream b m Char => ParsecT b u m Context
 parseContext = pTerm
     where
       pHole = (string "_" <* spaces) >> return Hole
-      pVar = liftM CVar $ many1 letter
+      pVar = liftM CVar $ many1 parseIdChar
       pLambda = do
         (string "^" <|> string "λ") <* spaces
-        v <- many1 letter <* spaces
+        v <- many1 parseIdChar <* spaces
         string "." <* spaces
         t <- pTerm
         return $ CLam v t

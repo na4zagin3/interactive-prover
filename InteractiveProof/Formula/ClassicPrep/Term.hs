@@ -51,7 +51,7 @@ showTerm ss (Imp t1 t2) = (if t1 < Imp Bot Bot then id else paren) (showTerm ss 
 parseTerm :: Stream b m Char => TermSymbols -> ParsecT b u m  Term
 parseTerm ss = pTerm
     where
-      pVar = liftM Var $ many1 letter
+      pVar = liftM Var $ many1 parseIdChar
       pBot = string (ss^._1) >> return Bot
       pNot = do
         string (ss^._2) <* spaces

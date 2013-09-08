@@ -68,7 +68,7 @@ showTerm ss (TmAbs v ty tm) = mconcat [ return $ ss^._1 ++ v ++ ":"
 parseTerm :: (Stream b m Char) => TermSymbols -> T.TypeSymbols -> ParsecT b u m  Term
 parseTerm ss tss = pTerm
     where
-      pVar = notFollowedBy ((string "if" <|> string "then" <|> string "else") >> notFollowedBy alphaNum) >> liftM TmVar (many1 letter)
+      pVar = notFollowedBy ((string "if" <|> string "then" <|> string "else") >> notFollowedBy alphaNum) >> liftM TmVar (many1 parseIdChar)
       pTrue = try (string (ss^._3) >> return TmTrue)
       pFalse = try (string (ss^._4) >> return TmFalse)
       pAtom = (string "(" >> pTerm <* string ")") <|> pTrue <|> pFalse <|> pVar
@@ -86,7 +86,7 @@ parseTerm ss tss = pTerm
         return $ TmIf t1 t2 t3
       pAbs = do
         (string "^" <|> string "λ") <* spaces
-        v <- many1 letter <* spaces
+        v <- many1 parseIdChar <* spaces
         string ":" <* spaces
         ty <- parseType tss <* spaces
         string "." <* spaces

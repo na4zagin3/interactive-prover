@@ -54,7 +54,7 @@ parseType ss = pType
         string $ ss^._3
         string $ ss^._1
         vh <- h
-        v <- many letter
+        v <- many parseIdChar
         string $ ss^._2
         return $ c (vh:v)
       pAtom = (string "(" >> pType <* string ")") <|> try (pVar Var lower) <|> try (pVar Prim upper) 

@@ -97,7 +97,7 @@ instance Show (ApplicableRule a) where
 --    parseFormat :: Stream b m Char => ParsecT b u m a
 parseStep :: (IsString String, Ord a, Stream b m Char, Formattable a b, Formattable a (TextFormat String), Formula a)=> Sequent a -> [(String, InferRule a)] -> ParsecT b u m (ApplicableRule a)
 parseStep _ ss = do
-      rn <- many1 letter <* spaces
+      rn <- many1 parseIdChar <* spaces
       case lookup (toString rn) ss of
         Nothing -> unexpected ("step name:" ++ toString rn)
         Just (StructureRule r) -> return $ ApplicableRule (rn, "", r)
@@ -116,7 +116,7 @@ parseStep _ ss = do
           r <- mr
           return $ ApplicableRule (rn, fst r, snd r)
     where
-      pVars = many1 $  many1 letter <* spaces
+      pVars = many1 $  many1 parseIdChar <* spaces
       pTerm = parseFormat
       strSeq fs = mconcat $ intersperse (return ", " :: TextFormat String) $ map toFormat fs
       toString' :: (IsString String)=> TextFormat String -> String

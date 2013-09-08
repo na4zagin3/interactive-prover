@@ -181,15 +181,15 @@ loop env proofs = do
         Just _ -> envPutLn "Proof completed." >> return tr
     parseCommand :: (Stream s m Char)=> ParsecT s u m (Command (Calculus, String, Term) String String)
     parseCommand = do
-      command <- spaces *> many letter <* spaces
+      command <- spaces *> many parseIdChar <* spaces
       fromMaybe (unexpected $ "command name: " ++ command) $ lookup command commands
     commands :: (Stream s m Char)=> [(String, ParsecT s u m (Command (Calculus, String, Term) String String))]
     commands = [("", return EmptyLine), ("qed", return EmptyLine), ("abort", return Abort), ("exit", return Abort), ("help", return Help), ("thm", parseTheorem), ("theorem", parseTheorem), ("extract", parseExtract), ("info", return Info), ("source", parseReadFile)]
     parseTheorem :: (Stream s m Char)=> ParsecT s u m (Command (Calculus, String, Term) a b)
     parseTheorem = fmap Command $ do
-      calcName <- many1 letter <* spaces
+      calcName <- many1 parseIdChar <* spaces
       string ":"
-      thmName <- many1 letter <* spaces <* string ":" <* spaces
+      thmName <- many1 parseIdChar <* spaces <* string ":" <* spaces
       case lookup calcName calculi of
         Nothing -> unexpected $ "calculus name: " ++ calcName
         Just calc@(ClassicPrep _) -> parseCp ClassicPrepTerm calc thmName
@@ -200,10 +200,10 @@ loop env proofs = do
     parseExtract :: (Stream s m Char)=> ParsecT s u m (Command a String String)
     parseExtract = do
       string ":"
-      format <- many1 letter <* spaces
-      calcName <- many1 letter <* spaces
+      format <- many1 parseIdChar <* spaces
+      calcName <- many1 parseIdChar <* spaces
       string ":"
-      thmName <- many1 letter <* spaces
+      thmName <- many1 parseIdChar <* spaces
       return $ Extract format calcName thmName
     parseReadFile :: (Stream s m Char)=> ParsecT s u m (Command a String String)
     parseReadFile = do

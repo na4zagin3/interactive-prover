@@ -52,10 +52,10 @@ parseTyEnv ss = pEnv
     where
       pVar c h = do
         vh <- h
-        v <- many1 letter
+        v <- many1 parseIdChar
         return $ c (vh:v)
       pEqn = do
-        v <- pVar id letter <* spaces
+        v <- pVar id parseIdChar <* spaces
         string $ ss^._4
         spaces
         t <- parseType
